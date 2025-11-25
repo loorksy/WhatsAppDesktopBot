@@ -164,13 +164,17 @@ function updateStatusPills(status){
   if (!status) return;
   const ready = $('pill-ready');
   const running = $('pill-running');
-  if (ready) ready.textContent = status.isReady ? 'متصل' : 'غير متصل';
+  const readyLabel = status.connectionStatus === 'connected' ? 'متصل'
+    : status.connectionStatus === 'reconnecting' ? 'إعادة الاتصال...'
+    : status.connectionStatus === 'loggedOut' ? 'مسجّل الخروج'
+    : 'غير متصل';
+  if (ready) ready.textContent = readyLabel;
   if (running) running.textContent = status.running ? 'شغّال' : 'متوقف';
   const runningBulk = status.bulk?.running;
   const runningElem = document.querySelector('#bulk #pill-running');
   if (runningElem) runningElem.textContent = runningBulk ? 'شغال (Bulk)' : 'متوقف';
   const readyBulk = document.querySelector('#bulk #pill-ready');
-  if (readyBulk) readyBulk.textContent = status.isReady ? 'متصل' : 'غير متصل';
+  if (readyBulk) readyBulk.textContent = readyLabel;
   if (status.bulk){ $('progress').textContent = `${status.bulk.index||0} / ${status.bulk.total||0}`; }
 }
 

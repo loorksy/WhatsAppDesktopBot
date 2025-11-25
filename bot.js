@@ -4,7 +4,7 @@ const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode');
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, DisconnectReason } = require('whatsapp-web.js');
 
 class SimpleStore {
   constructor(filePath) {
@@ -73,6 +73,8 @@ class Bot {
     this.qrDataUrl = null;
     this.isReady = false;
     this.running = false;
+    this.connectionStatus = 'disconnected';
+    this.reconnectTimer = null;
 
     this.selectedGroupIds = [];
     this.clients = []; // [{name, emoji, _norm, _rx}]
@@ -165,6 +167,8 @@ class Bot {
   async init() {
     if (!fs.existsSync(this.sessionsDir)) fs.mkdirSync(this.sessionsDir, { recursive: true });
 
+    this.connectionStatus = this.connectionStatus === 'connected' ? 'connected' : 'connecting';
+
     this.client = new Client({
       authStrategy: new LocalAuth({ dataPath: this.sessionsDir }),
       puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] }
@@ -173,6 +177,7 @@ class Bot {
     this.client.on('qr', async (qr) => {
       this.qrDataUrl = await qrcode.toDataURL(qr);
       this.isReady = false;
+      this.connectionStatus = 'connecting';
       this.log('[QR] جاهز — امسحه من WhatsApp');
       try { this.emitter.emit('qr', this.qrDataUrl); } catch {}
     });
@@ -180,6 +185,7 @@ class Bot {
     this.client.on('ready', () => {
       this.isReady = true;
       this.qrDataUrl = null;
+      this.connectionStatus = 'connected';
       this.log('✅ WhatsApp جاهز');
       try { this.emitter.emit('ready'); } catch {}
     });
@@ -187,8 +193,19 @@ class Bot {
     this.client.on('disconnected', (r) => {
       this.isReady = false;
       this.running = false;
-      this.log('❌ تم قطع الاتصال: ' + r);
-      try { this.client.initialize(); } catch {}
+
+      const reason = typeof r === 'object' && r !== null && 'reason' in r ? r.reason : r;
+      const isLogout = reason === DisconnectReason?.loggedOut || reason === 'LOGOUT' || reason === 'loggedOut';
+
+      if (isLogout) {
+        this.connectionStatus = 'loggedOut';
+        this.log('⚠️ مسجّل الخروج: ' + reason);
+      } else {
+        this.connectionStatus = 'reconnecting';
+        this.log('❌ تم قطع الاتصال: ' + reason + ' — إعادة الاتصال…');
+        this._scheduleReconnect();
+      }
+
       try { this.emitter.emit('disconnected', r); } catch {}
     });
 
@@ -306,6 +323,7 @@ class Bot {
     return {
       isReady: this.isReady,
       running: this.running,
+      connectionStatus: this.connectionStatus,
       selectedGroupIds: this.selectedGroupIds,
       clients: this.clients.map(({name, emoji}) => ({name, emoji})),
       settings: this.settings,
@@ -444,13 +462,26 @@ class Bot {
 
   async clearSession() {
     this.running = false;
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     try { await this.client?.destroy(); } catch {}
     try {
       if (fs.existsSync(this.sessionsDir)) {
         fs.rmSync(this.sessionsDir, { recursive: true, force: true });
       }
     } catch {}
+    this.connectionStatus = 'connecting';
     return this.init();
+  }
+
+  _scheduleReconnect() {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      try {
+        this.connectionStatus = 'reconnecting';
+        this.client?.initialize();
+      } catch {}
+    }, 2000);
   }
 }
 let singleton;
