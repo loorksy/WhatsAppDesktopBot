@@ -223,10 +223,24 @@ async function fetchGroups(savedUi = {}, force = false){
   }catch(e){ const box=$('groups'); if(box) box.innerHTML='تعذر الجلب'; }
 }
 
+function getBulkGroupsMessageBox(select){
+  if (!select || !select.parentElement) return null;
+  let box = document.getElementById('bulk-groups-message');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'bulk-groups-message';
+    box.className = 'muted';
+    box.style.marginTop = '6px';
+    select.parentElement.appendChild(box);
+  }
+  return box;
+}
+
 function renderBulkGroups(list = [], preferredId){
   const select = $('groupSelect');
   if (!select) return;
   select.innerHTML = '';
+  const messageBox = getBulkGroupsMessageBox(select);
   if (!list.length){
     const opt = document.createElement('option');
     opt.value = '';
@@ -234,9 +248,11 @@ function renderBulkGroups(list = [], preferredId){
     opt.selected = true;
     opt.textContent = 'لا توجد مجموعات متاحة حالياً';
     select.appendChild(opt);
+    if (messageBox) messageBox.textContent = 'لا توجد مجموعات متاحة حالياً.';
     return;
   }
 
+  if (messageBox) messageBox.textContent = '';
   list.forEach((g) => {
     const opt = document.createElement('option');
     opt.value = g.id;
@@ -260,6 +276,7 @@ async function loadBulkGroups({ savedId = '', force = false } = {}){
   select.dataset.pendingSelection = preferred;
   try {
     const list = await api.bulkGroups();
+    console.log("Groups from API:", list);
     bulkGroupsLoaded = true;
     renderBulkGroups(list, preferred);
   } catch (e) {
@@ -270,6 +287,8 @@ async function loadBulkGroups({ savedId = '', force = false } = {}){
     opt.selected = true;
     opt.textContent = 'تعذر جلب المجموعات (تأكد من الاتصال)';
     select.appendChild(opt);
+    const messageBox = getBulkGroupsMessageBox(select);
+    if (messageBox) messageBox.textContent = 'لا توجد مجموعات متاحة حالياً.';
   }
 }
 

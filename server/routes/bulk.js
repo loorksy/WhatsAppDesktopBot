@@ -62,8 +62,9 @@ module.exports = ({ bot }) => {
 
   router.get('/bulk/groups', async (_req, res) => {
     try {
-      const groups = await (bot.listBulkGroups ? bot.listBulkGroups() : bot.fetchGroups());
-      res.json(groups.map((g) => ({ id: g.id, name: g.name || g.subject || 'مجموعة' })));
+      const groups = (await (bot.listBulkGroups ? bot.listBulkGroups() : bot.fetchGroups())) || [];
+      const shaped = groups.map((g) => ({ id: g.id, name: g.name || g.subject || 'مجموعة' }));
+      res.json(shaped);
     } catch (e) {
       res.status(400).json({ error: e.message || e });
     }
