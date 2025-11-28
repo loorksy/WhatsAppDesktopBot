@@ -835,7 +835,7 @@ class WhatsAppBotService {
 
     for (const chat of target) {
       const chatId = chat.id;
-      const since = startAtMs ?? this.getLastChecked(chatId) ?? 0;
+      const since = 0;
       this.log(`[backlog] ${chat.name} since ${since ? new Date(since).toLocaleString() : '—'}`);
       const msgs = await this._fetchMessagesFromChat(chatId, { since, limit: limitPerChat });
 
@@ -844,9 +844,11 @@ class WhatsAppBotService {
         const text = (this._extractText(m) || '').trim();
         const mid = this._msgId(m);
         if (m.key?.fromMe) continue;
-        if (this._isDone(mid)) {
-          this.setLastChecked(chatId, tsMs);
-          continue;
+        if (!text) continue;
+        if (this.clients && this.clients.length) {
+          const normBody = this.settings.normalizeArabic ? this.normalizeArabic(text) : text.toLowerCase();
+          const match = this.clients.some((c) => c._rx && c._rx.test(normBody));
+          if (!match) continue;
         }
         this._enqueueJob({
           kind: 'backlog',
@@ -883,13 +885,11 @@ class WhatsAppBotService {
 
     for (const chat of target) {
       const chatId = chat.id;
-      const since = startAtMs ?? this.getLastChecked(chatId) ?? 0;
+      const since = 0;
       const msgs = await this._fetchMessagesFromChat(chatId, { since, limit: limitPerChat });
       let count = 0;
       for (const m of msgs) {
-        const mid = this._msgId(m);
         if (m.key?.fromMe) continue;
-        if (this._isDone(mid)) continue;
         const text = (this._extractText(m) || '').trim();
         if (!text) continue;
         if (this.clients && this.clients.length) {
