@@ -826,7 +826,18 @@ class WhatsAppBotService {
     }
   }
 
-  async processBacklog({ startAtMs = null, limitPerChat = 800 } = {}) {
+  _resolveBacklogSince({ startAtMs = null, hours = null, chatId = null } = {}) {
+    const hoursNum = Number(hours);
+    if (!Number.isNaN(hoursNum) && hoursNum > 0) {
+      return Date.now() - hoursNum * 60 * 60 * 1000;
+    }
+    const ts = Number(startAtMs);
+    if (!Number.isNaN(ts) && ts > 0) return ts;
+    if (chatId) return this.getLastChecked(chatId) || 0;
+    return 0;
+  }
+
+  async processBacklog({ startAtMs = null, hours = null, limitPerChat = 800 } = {}) {
     if (!this.socket || !this.isReady) throw new Error('WhatsApp not ready');
     const groups = await this.fetchGroups();
     const target = groups.filter((g) =>
@@ -835,7 +846,7 @@ class WhatsAppBotService {
 
     for (const chat of target) {
       const chatId = chat.id;
-      const since = 0;
+      const since = this._resolveBacklogSince({ startAtMs, hours, chatId });
       this.log(`[backlog] ${chat.name} since ${since ? new Date(since).toLocaleString() : '—'}`);
       const msgs = await this._fetchMessagesFromChat(chatId, { since, limit: limitPerChat });
 
@@ -843,7 +854,12 @@ class WhatsAppBotService {
         const tsMs = Number(m.messageTimestamp || 0) * 1000;
         const text = (this._extractText(m) || '').trim();
         const mid = this._msgId(m);
+        if (tsMs <= since) continue;
         if (m.key?.fromMe) continue;
+        if (this._isDone(mid)) {
+          this.setLastChecked(chatId, tsMs);
+          continue;
+        }
         if (!text) continue;
         if (this.clients && this.clients.length) {
           const normBody = this.settings.normalizeArabic ? this.normalizeArabic(text) : text.toLowerCase();
@@ -873,7 +889,7 @@ class WhatsAppBotService {
     this._runWorker();
   }
 
-  async countBacklog({ startAtMs = null, limitPerChat = 800 } = {}) {
+  async countBacklog({ startAtMs = null, hours = null, limitPerChat = 800 } = {}) {
     if (!this.socket || !this.isReady) throw new Error('WhatsApp not ready');
     const groups = await this.fetchGroups();
     const target = groups.filter((g) =>
@@ -885,11 +901,15 @@ class WhatsAppBotService {
 
     for (const chat of target) {
       const chatId = chat.id;
-      const since = 0;
+      const since = this._resolveBacklogSince({ startAtMs, hours, chatId });
       const msgs = await this._fetchMessagesFromChat(chatId, { since, limit: limitPerChat });
       let count = 0;
       for (const m of msgs) {
+        const tsMs = Number(m.messageTimestamp || 0) * 1000;
+        if (tsMs <= since) continue;
         if (m.key?.fromMe) continue;
+        const mid = this._msgId(m);
+        if (this._isDone(mid)) continue;
         const text = (this._extractText(m) || '').trim();
         if (!text) continue;
         if (this.clients && this.clients.length) {
