@@ -159,7 +159,12 @@ app.get('/api/bulk/status', (req, res) => {
 
 io.use((socket, next) => {
   try {
-    const token = socket.handshake.headers.cookie?.split(';').map((p) => p.trim()).find((c) => c.startsWith('token='))?.split('=')[1];
+    const cookieHeader = socket.handshake.headers.cookie || '';
+    const tokenPart = cookieHeader
+      .split(';')
+      .map((p) => p.trim())
+      .find((c) => c.startsWith('token='));
+    const token = tokenPart ? tokenPart.split('=')[1] : null;
     if (!token) return next(new Error('Unauthorized'));
     jwt.verify(token, JWT_SECRET);
     return next();
