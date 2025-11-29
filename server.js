@@ -2,17 +2,12 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const jwt = require('jsonwebtoken');
 const fs = require('fs-extra');
 const path = require('path');
 const WhatsAppBot = require('./bot');
 const store = require('./store');
 
 const PORT = process.env.PORT || 3000;
-const DASH_USER = process.env.DASH_USER || 'loorksy@gmail.com';
-const DASH_PASS = process.env.DASH_PASS || 'lork0009';
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-secret';
 
 const app = express();
 const server = http.createServer(app);
@@ -22,42 +17,10 @@ const io = socketIo(server, {
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
-app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const bot = new WhatsAppBot();
 bot.init();
-
-function authMiddleware(req, res, next) {
-  if (req.path === '/api/login') return next();
-  const token = req.cookies.token;
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    jwt.verify(token, JWT_SECRET);
-    return next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-}
-
-app.post('/api/login', (req, res) => {
-  const payload = req.body || {};
-  const { username, email, user, password, pass } = payload;
-  const providedUser = (username || email || user || '').trim();
-  const providedPass = (password || pass || '').trim();
-
-  if (providedUser === DASH_USER && providedPass === DASH_PASS) {
-    const token = jwt.sign({ user: providedUser }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
-    return res.json({ success: true });
-  }
-
-  const receivedFields = { username: username || null, email: email || null, user: user || null };
-  console.warn('Login failed. Received fields:', receivedFields);
-  return res.status(401).json({ error: 'Invalid credentials' });
-});
-
-app.use('/api', authMiddleware);
 
 app.get('/api/status', (req, res) => {
   res.json({ connected: bot.connected, running: bot.running, bulk: bot.getBulkPublicState() });
@@ -157,22 +120,6 @@ app.get('/api/bulk/status', (req, res) => {
   res.json(bot.getBulkPublicState());
 });
 
-io.use((socket, next) => {
-  try {
-    const cookieHeader = socket.handshake.headers.cookie || '';
-    const tokenPart = cookieHeader
-      .split(';')
-      .map((p) => p.trim())
-      .find((c) => c.startsWith('token='));
-    const token = tokenPart ? tokenPart.split('=')[1] : null;
-    if (!token) return next(new Error('Unauthorized'));
-    jwt.verify(token, JWT_SECRET);
-    return next();
-  } catch (err) {
-    return next(new Error('Unauthorized'));
-  }
-});
-
 io.on('connection', (socket) => {
   const logHandler = (msg) => socket.emit('log', msg);
   const qrHandler = (qr) => socket.emit('qr', qr);
@@ -197,7 +144,4 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  if (JWT_SECRET === 'change-me-secret') {
-    console.warn('WARNING: Using default JWT secret. Set JWT_SECRET for production.');
-  }
 });

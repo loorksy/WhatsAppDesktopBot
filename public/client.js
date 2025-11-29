@@ -1,10 +1,6 @@
 const api = {
   async request(path, options = {}) {
     const res = await fetch(path, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...options });
-    if (res.status === 401) {
-      showLogin();
-      throw new Error('Unauthorized');
-    }
     return res.json();
   },
 };
@@ -14,40 +10,6 @@ const socket = io('/', { withCredentials: true, autoConnect: false });
 let isDashboard = window.location.pathname.includes('index.html') || window.location.pathname === '/';
 let isBulk = window.location.pathname.includes('bulk.html');
 
-function showLogin() {
-  document.getElementById('login-overlay').classList.remove('hidden');
-}
-
-async function login() {
-  const username = document.getElementById('login-user').value;
-  const password = document.getElementById('login-pass').value;
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email: username, user: username, password, pass: password }),
-    });
-    if (res.ok) {
-      document.getElementById('login-error').textContent = '';
-      document.getElementById('login-overlay').classList.add('hidden');
-      socket.connect();
-      init();
-    } else {
-      const data = await res.json();
-      document.getElementById('login-error').textContent = data.error || 'Login failed';
-    }
-  } catch (err) {
-    document.getElementById('login-error').textContent = 'Login failed';
-  }
-}
-
-function setupLogin() {
-  const overlay = document.getElementById('login-overlay');
-  if (!overlay) return;
-  document.getElementById('login-btn').addEventListener('click', login);
-}
-
 async function init() {
   try {
     await api.request('/api/status');
@@ -55,7 +17,7 @@ async function init() {
     if (isDashboard) initDashboard();
     if (isBulk) initBulk();
   } catch (err) {
-    showLogin();
+    console.error('Initialization failed', err);
   }
 }
 
@@ -81,7 +43,6 @@ function addLog(line, target = 'logs') {
 }
 
 function initSocket() {
-  socket.on('connect_error', showLogin);
   socket.on('status', updateStatus);
   socket.on('log', (msg) => addLog(msg));
   socket.on('qr', (qr) => {
@@ -245,5 +206,4 @@ function bindBulk() {
   document.getElementById('bulk-stop').addEventListener('click', () => api.request('/api/bulk/stop', { method: 'POST' }));
 }
 
-setupLogin();
 init();
