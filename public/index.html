@@ -1,64 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WhatsApp Bot Dashboard</title>
+  <title>لوحة تحكم واتساب بوت</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
       <div>
-        <h1>WA Bot Control</h1>
-        <p class="muted">Modern dark workspace · Mobile-first</p>
+        <h1>التحكم في البوت</h1>
+        <p class="muted">ASWSD.DEV</p>
       </div>
       <nav class="header-actions">
-        <a class="pill" href="bulk.html">Bulk Sender</a>
+        <a class="pill" href="bulk.html">الإرسال الجماعي</a>
       </nav>
     </header>
 
     <section class="grid two">
       <div class="card status-card">
         <div class="card-header">
-          <h2>Status</h2>
-          <button id="qr-btn" class="ghost">Show QR</button>
+          <h2>الحالة</h2>
+          <button id="qr-btn" class="ghost">إظهار رمز QR</button>
         </div>
         <div class="pill-row">
-          <span id="connected-pill" class="status-pill">Disconnected</span>
-          <span id="link-pill" class="status-pill">Not linked</span>
-          <span id="running-pill" class="status-pill">Stopped</span>
+          <span id="connected-pill" class="status-pill">غير متصل</span>
+          <span id="link-pill" class="status-pill">غير مرتبط</span>
+          <span id="running-pill" class="status-pill">متوقف</span>
         </div>
         <div class="stacked-actions">
-          <button id="start-btn" class="primary">Start Bot</button>
-          <button id="stop-btn" class="danger">Stop Bot</button>
+          <button id="start-btn" class="primary">تشغيل البوت</button>
+          <button id="stop-btn" class="danger">إيقاف البوت</button>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <h2>Forwarding</h2>
+          <h2>إعادة التوجيه</h2>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="forward-enabled">Enable Forwarding</label>
+            <label for="forward-enabled">تفعيل إعادة التوجيه</label>
             <label class="switch">
               <input type="checkbox" id="forward-enabled" />
               <span class="slider"></span>
             </label>
           </div>
           <div class="field">
-            <label for="forward-target">Target Group</label>
+            <label for="forward-target">المجموعة المستهدفة</label>
             <select id="forward-target"></select>
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="forward-batch">Batch Size</label>
+            <label for="forward-batch">عدد الرسائل دفعة واحدة</label>
             <input type="number" id="forward-batch" min="1" value="10" />
           </div>
           <div class="field">
-            <label for="forward-flush-idle">Flush on Idle</label>
+            <label for="forward-flush-idle">إرسال عند الخمول</label>
             <label class="switch">
               <input type="checkbox" id="forward-flush-idle" />
               <span class="slider"></span>
@@ -66,12 +66,12 @@
           </div>
         </div>
         <div class="forward-meta">
-          <div>Queue: <span id="forward-queue">0</span></div>
-          <div>Last Forward: <span id="forward-last">N/A</span></div>
+          <div>قائمة الانتظار: <span id="forward-queue">0</span></div>
+          <div>آخر إعادة توجيه: <span id="forward-last">غير متوفر</span></div>
         </div>
         <div class="stacked-actions">
-          <button id="forward-flush" class="primary ghost">Forward now</button>
-          <button id="forward-clear" class="ghost">Clear forward queue</button>
+          <button id="forward-flush" class="primary ghost">إعادة التوجيه الآن</button>
+          <button id="forward-clear" class="ghost">تفريغ قائمة الانتظار</button>
         </div>
       </div>
     </section>
@@ -79,53 +79,53 @@
     <section class="grid two">
       <div class="card">
         <div class="card-header">
-          <h2>Groups</h2>
+          <h2>المجموعات</h2>
           <div class="spacer"></div>
-          <button id="fetch-groups" class="ghost">Refresh</button>
-          <button id="save-groups" class="primary ghost">Save</button>
+          <button id="fetch-groups" class="ghost">تحديث</button>
+          <button id="save-groups" class="primary ghost">حفظ</button>
         </div>
         <div id="groups-list" class="group-list"></div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <h2>Clients (Main List)</h2>
+          <h2>قائمة الأسماء الرئيسية</h2>
           <div class="spacer"></div>
-          <button id="save-clients" class="primary ghost">Save</button>
-          <button id="clear-clients" class="danger ghost">Clear</button>
+          <button id="save-clients" class="primary ghost">حفظ</button>
+          <button id="clear-clients" class="danger ghost">حذف القائمة</button>
         </div>
-        <textarea id="clients-text" rows="8" placeholder="Name|Emoji per line"></textarea>
+        <textarea id="clients-text" rows="8" placeholder="الاسم|الإيموجي في كل سطر"></textarea>
       </div>
     </section>
 
     <section class="grid two">
       <div class="card">
         <div class="card-header">
-          <h2>Settings</h2>
-          <button id="save-settings" class="primary ghost">Save</button>
+          <h2>الإعدادات</h2>
+          <button id="save-settings" class="primary ghost">حفظ</button>
         </div>
         <div class="field-grid">
           <div class="field">
-            <label for="rpm">Actions per minute</label>
+            <label for="rpm">إجراءات في الدقيقة</label>
             <input type="number" id="rpm" min="1" value="20" />
           </div>
           <div class="field">
-            <label for="cooldown">Cooldown (seconds)</label>
+            <label for="cooldown">فاصل زمني (ثوانٍ)</label>
             <input type="number" id="cooldown" min="0" value="3" />
           </div>
           <div class="field">
-            <label for="defaultEmoji">Default Emoji</label>
+            <label for="defaultEmoji">الإيموجي الافتراضي</label>
             <input type="text" id="defaultEmoji" maxlength="4" />
           </div>
           <div class="field toggle-field">
-            <label>Normalize Arabic</label>
+            <label>توحيد النص العربي</label>
             <label class="switch">
               <input type="checkbox" id="normalize" checked />
               <span class="slider"></span>
             </label>
           </div>
           <div class="field toggle-field">
-            <label>Reply Mode</label>
+            <label>وضع الرد النصي</label>
             <label class="switch">
               <input type="checkbox" id="replyMode" />
               <span class="slider"></span>
@@ -136,22 +136,22 @@
 
       <div class="card">
         <div class="card-header">
-          <h2>Backlog & Archive</h2>
-          <button id="backlog-process" class="primary ghost">Process</button>
-          <button id="backlog-check" class="ghost">Check</button>
+          <h2>فحص الأرشيف</h2>
+          <button id="backlog-process" class="primary ghost">تنفيذ</button>
+          <button id="backlog-check" class="ghost">فحص</button>
         </div>
         <div class="field-grid">
           <div class="field">
-            <label for="backlog-hours">Hours window</label>
+            <label for="backlog-hours">نطاق البحث (ساعات)</label>
             <input type="range" id="backlog-hours" min="0" max="72" step="1" value="0" />
-            <div class="range-value" id="backlog-hours-value">0h</div>
+            <div class="range-value" id="backlog-hours-value">0س</div>
           </div>
           <div class="field">
-            <label for="backlog-since">Start from (date/time)</label>
+            <label for="backlog-since">يبدأ من (وقت/تاريخ)</label>
             <input type="datetime-local" id="backlog-since" />
           </div>
           <div class="field">
-            <label for="backlog-limit">Limit</label>
+            <label for="backlog-limit">الحد الأقصى</label>
             <input type="number" id="backlog-limit" min="50" max="2000" value="500" />
           </div>
         </div>
@@ -162,18 +162,18 @@
 
     <section class="card">
       <div class="card-header">
-        <h2>Interactions</h2>
+        <h2>السجلات</h2>
         <div class="spacer"></div>
-        <button id="copy-pending" class="ghost">Copy Pending</button>
-        <button id="copy-interacted" class="ghost">Copy Interacted</button>
+        <button id="copy-pending" class="ghost">نسخ الباقي</button>
+        <button id="copy-interacted" class="ghost">نسخ المتفاعل</button>
       </div>
       <div class="grid two compact">
         <div class="list-block">
-          <div class="block-header">Pending <span id="pending-count" class="badge">0</span></div>
+          <div class="block-header">قيد الانتظار <span id="pending-count" class="badge">0</span></div>
           <div id="pending-log" class="pill-list"></div>
         </div>
         <div class="list-block">
-          <div class="block-header">Interacted <span id="interacted-count" class="badge">0</span></div>
+          <div class="block-header">تم التفاعل <span id="interacted-count" class="badge">0</span></div>
           <div id="interacted-log" class="pill-list"></div>
         </div>
       </div>
@@ -181,9 +181,9 @@
 
     <section class="card">
       <div class="card-header">
-        <h2>System Log</h2>
-        <button id="copy-skipped" class="ghost">Copy Raw</button>
-        <button id="clear-skipped" class="danger ghost">Clear</button>
+        <h2>سجل النظام</h2>
+        <button id="copy-skipped" class="ghost">نسخ السجل</button>
+        <button id="clear-skipped" class="danger ghost">مسح</button>
       </div>
       <pre id="logs" class="terminal"></pre>
     </section>
@@ -192,7 +192,7 @@
   <div id="qr-modal" class="modal hidden">
     <div class="modal-content">
       <button id="qr-close" class="ghost close">✕</button>
-      <img id="qr-image" alt="QR code" />
+      <img id="qr-image" alt="رمز الاستجابة السريعة" />
     </div>
   </div>
 

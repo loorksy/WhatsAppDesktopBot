@@ -12,7 +12,7 @@ const api = {
       data = {};
     }
     if (!res.ok) {
-      return { error: data.error || 'Request failed', status: res.status };
+      return { error: data.error || 'فشل الطلب', status: res.status };
     }
     return data;
   },
@@ -96,11 +96,11 @@ function handleInteractionEntry(entry) {
 function handleApiError(data, context) {
   if (!data || typeof data !== 'object') return false;
   if (data.error === 'WA_NOT_READY') {
-    addLog(`WhatsApp not ready${context ? `: ${context}` : ''}`);
+    addLog(`واتساب غير جاهز${context ? `: ${context}` : ''}`);
     return true;
   }
   if (data.error) {
-    addLog(`${context || 'Request'} failed: ${data.error}`);
+    addLog(`فشل الطلب${context ? ` (${context})` : ''}: ${data.error}`);
     return true;
   }
   return false;
@@ -115,19 +115,19 @@ function setStatusPill(id, text, cls) {
 }
 
 function formatTs(ts) {
-  if (!ts) return 'N/A';
+  if (!ts) return 'غير متوفر';
   const d = new Date(ts);
-  return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
+  return isNaN(d.getTime()) ? 'غير متوفر' : d.toLocaleString();
 }
 
 function renderStatus(status) {
   statusState = { ...statusState, ...status };
   const linkLabelMap = {
-    ready: 'Ready (in WhatsApp)',
-    qr: 'Not linked / QR needed',
-    linking: 'Linking',
-    disconnected: 'Disconnected',
-    not_linked: 'Not linked',
+    ready: 'جاهز داخل واتساب',
+    qr: 'غير مرتبط / يحتاج QR',
+    linking: 'جاري الربط',
+    disconnected: 'منفصل',
+    not_linked: 'غير مرتبط',
   };
   const linkClassMap = {
     ready: 'ok',
@@ -136,9 +136,9 @@ function renderStatus(status) {
     disconnected: 'bad',
     not_linked: 'bad',
   };
-  setStatusPill('connected-pill', statusState.connected ? 'Connected' : 'Disconnected', statusState.connected ? 'ok' : 'bad');
-  setStatusPill('running-pill', statusState.running ? 'Running' : 'Stopped', statusState.running ? 'ok' : 'bad');
-  setStatusPill('link-pill', linkLabelMap[statusState.linkState] || 'Not linked', linkClassMap[statusState.linkState] || 'bad');
+  setStatusPill('connected-pill', statusState.connected ? 'متصل' : 'غير متصل', statusState.connected ? 'ok' : 'bad');
+  setStatusPill('running-pill', statusState.running ? 'يعمل' : 'متوقف', statusState.running ? 'ok' : 'bad');
+  setStatusPill('link-pill', linkLabelMap[statusState.linkState] || 'غير مرتبط', linkClassMap[statusState.linkState] || 'bad');
   const qrBtn = document.getElementById('qr-btn');
   if (qrBtn) {
     const disableQr = statusState.linkState === 'ready';
@@ -167,7 +167,7 @@ function renderCheckpoints(map) {
   if (!el) return;
   const entries = Object.entries(map || {});
   if (!entries.length) {
-    el.textContent = 'No checkpoints yet.';
+    el.textContent = 'لا توجد نقاط تحقق بعد.';
     return;
   }
   el.innerHTML = entries
@@ -192,9 +192,9 @@ function renderForwardState(forward) {
     if (match) target.value = forward.targetChatId;
   }
   const forwardLabel = document.getElementById('forward-enabled-label');
-  if (forwardLabel) forwardLabel.textContent = forward.enabled ? 'On' : 'Off';
+  if (forwardLabel) forwardLabel.textContent = forward.enabled ? 'مفعّل' : 'معطل';
   const forwardTargetLabel = document.getElementById('forward-target-label');
-  if (forwardTargetLabel) forwardTargetLabel.textContent = forward.targetChatId || 'Not set';
+  if (forwardTargetLabel) forwardTargetLabel.textContent = forward.targetChatId || 'غير محدد';
 }
 
 async function saveForwardSettings() {
@@ -452,7 +452,7 @@ function renderGroups(groups) {
 function updateForwardTargetOptions(groups) {
   const select = document.getElementById('forward-target');
   if (!select) return;
-  select.innerHTML = '<option value="">-- Select target group --</option>';
+  select.innerHTML = '<option value="">-- اختر المجموعة المستهدفة --</option>';
   (groups || []).forEach((g) => {
     const opt = document.createElement('option');
     opt.value = g.id;
@@ -471,7 +471,7 @@ function renderBacklog(data) {
   if (!Array.isArray(data)) return;
   (data || []).forEach((row) => {
     const div = document.createElement('div');
-    div.textContent = `${row.groupName || row.groupId}: ${row.found || 0} Candidates${row.processed ? ` | queued ${row.processed}` : ''}`;
+    div.textContent = `${row.groupName || row.groupId}: ${row.found || 0} رسائل مرشحة${row.processed ? ` | تمت جدولة ${row.processed}` : ''}`;
     container.appendChild(div);
   });
 }
@@ -479,7 +479,7 @@ function renderBacklog(data) {
 function renderBulkStatus(state) {
   const status = document.getElementById('bulk-status');
   const progress = document.getElementById('bulk-progress');
-  if (status) status.textContent = `${state.state}${state.paused ? ' (paused)' : ''}`;
+  if (status) status.textContent = `${state.state}${state.paused ? ' (متوقف مؤقتًا)' : ''}`;
   if (progress) {
     const pct = state.total ? Math.min(100, Math.round((state.sent / state.total) * 100)) : 0;
     progress.style.width = `${pct}%`;
@@ -530,7 +530,7 @@ function analyzeNotifications() {
   const mode = document.getElementById('bulk-parse-mode').value;
   const messages = parseNotifications(rawText, mode);
   const analysis = document.getElementById('bulk-analysis');
-  analysis.textContent = `Notifications: ${messages.length}`;
+  analysis.textContent = `عدد الإشعارات: ${messages.length}`;
   return messages;
 }
 
@@ -569,7 +569,7 @@ function updateHoursLabel() {
   const hoursRange = document.getElementById('backlog-hours');
   const label = document.getElementById('backlog-hours-value');
   if (hoursRange && label) {
-    label.textContent = `${hoursRange.value}h`;
+    label.textContent = `${hoursRange.value}س`;
   }
 }
 

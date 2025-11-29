@@ -1,36 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bulk Sender</title>
+  <title>الإرسال الجماعي</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
       <div>
-        <h1>Bulk Notifications</h1>
-        <p class="muted">Compose & analyze batches</p>
+        <h1>إشعارات جماعية</h1>
+        <p class="muted">إنشاء وتحليل الدُفعات</p>
       </div>
       <nav class="header-actions">
-        <a class="pill" href="index.html">Dashboard</a>
+        <a class="pill" href="index.html">اللوحة الرئيسية</a>
       </nav>
     </header>
 
     <section class="grid two">
       <div class="card status-card">
         <div class="card-header">
-          <h2>Status</h2>
-          <button id="qr-btn" class="ghost">Show QR</button>
+          <h2>الحالة</h2>
+          <button id="qr-btn" class="ghost">إظهار رمز QR</button>
         </div>
         <div class="pill-row">
-          <span id="connected-pill" class="status-pill">Disconnected</span>
-          <span id="link-pill" class="status-pill">Not linked</span>
-          <span id="running-pill" class="status-pill">Stopped</span>
+          <span id="connected-pill" class="status-pill">غير متصل</span>
+          <span id="link-pill" class="status-pill">غير مرتبط</span>
+          <span id="running-pill" class="status-pill">متوقف</span>
         </div>
         <div class="bulk-progress">
-          <div class="progress-text" id="bulk-status">Idle</div>
+          <div class="progress-text" id="bulk-status">خامل</div>
           <div class="progress">
             <div id="bulk-progress" class="progress-fill" style="width:0%"></div>
           </div>
@@ -39,61 +39,61 @@
 
       <div class="card">
         <div class="card-header">
-          <h2>Forwarding Snapshot</h2>
+          <h2>ملخص إعادة التوجيه</h2>
         </div>
         <div class="forward-meta">
-          <div>Enabled: <span id="forward-enabled-label">—</span></div>
-          <div>Target: <span id="forward-target-label">—</span></div>
-          <div>Queue: <span id="forward-queue">0</span></div>
-          <div>Last Forward: <span id="forward-last">N/A</span></div>
+          <div>التفعيل: <span id="forward-enabled-label">—</span></div>
+          <div>الهدف: <span id="forward-target-label">—</span></div>
+          <div>قائمة الانتظار: <span id="forward-queue">0</span></div>
+          <div>آخر إعادة توجيه: <span id="forward-last">غير متوفر</span></div>
         </div>
       </div>
     </section>
 
     <section class="card">
       <div class="card-header">
-        <h2>Notification Builder</h2>
+        <h2>إنشاء الإشعارات</h2>
         <div class="spacer"></div>
-        <button id="bulk-analyze" class="ghost">Analyze Notifications</button>
+        <button id="bulk-analyze" class="ghost">تحليل الإشعارات</button>
       </div>
       <div class="field-row">
         <div class="field">
-          <label for="bulk-group">Target Group</label>
+          <label for="bulk-group">المجموعة المستهدفة</label>
           <select id="bulk-group"></select>
         </div>
         <div class="field">
-          <label for="bulk-parse-mode">Parsing Mode</label>
+          <label for="bulk-parse-mode">وضع التقسيم</label>
           <select id="bulk-parse-mode">
-            <option value="paragraph">Paragraph (blank lines)</option>
-            <option value="fixed3">Fixed 3 lines</option>
+            <option value="paragraph">فقرات (أسطر فارغة)</option>
+            <option value="fixed3">كل 3 أسطر</option>
           </select>
         </div>
       </div>
-      <textarea id="bulk-messages" rows="10" placeholder="Enter notifications..."></textarea>
+      <textarea id="bulk-messages" rows="10" placeholder="اكتب الإشعارات..."></textarea>
       <div class="field-grid">
         <div class="field">
-          <label for="bulk-delay">Delay (seconds)</label>
+          <label for="bulk-delay">الفاصل (ثوانٍ)</label>
           <input type="number" id="bulk-delay" min="1" value="2" />
         </div>
         <div class="field">
-          <label for="bulk-rpm">RPM limit</label>
+          <label for="bulk-rpm">حد الـ RPM</label>
           <input type="number" id="bulk-rpm" min="1" value="10" />
         </div>
       </div>
       <div id="bulk-analysis" class="muted"></div>
       <div class="stacked-actions">
-        <button id="bulk-start" class="primary">Start</button>
+        <button id="bulk-start" class="primary">بدء</button>
         <div class="inline-buttons">
-          <button id="bulk-pause" class="ghost">Pause</button>
-          <button id="bulk-resume" class="ghost">Resume</button>
-          <button id="bulk-stop" class="danger ghost">Stop</button>
+          <button id="bulk-pause" class="ghost">إيقاف مؤقت</button>
+          <button id="bulk-resume" class="ghost">استئناف</button>
+          <button id="bulk-stop" class="danger ghost">إيقاف</button>
         </div>
       </div>
     </section>
 
     <section class="card">
       <div class="card-header">
-        <h2>Backlog Checkpoints</h2>
+        <h2>نقاط التحقق من الأرشيف</h2>
       </div>
       <div id="backlog-checkpoints" class="muted small"></div>
     </section>
@@ -102,7 +102,7 @@
   <div id="qr-modal" class="modal hidden">
     <div class="modal-content">
       <button id="qr-close" class="ghost close">✕</button>
-      <img id="qr-image" alt="QR code" />
+      <img id="qr-image" alt="رمز الاستجابة السريعة" />
     </div>
   </div>
 

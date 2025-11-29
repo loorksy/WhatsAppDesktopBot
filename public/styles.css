@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap');
+
 :root {
   --bg: #0f1115;
   --card: #161a21;
@@ -16,13 +18,14 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
   background: radial-gradient(circle at top left, rgba(79, 209, 197, 0.08), transparent 25%),
     radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.1), transparent 25%),
     var(--bg);
   color: var(--text);
   min-height: 100vh;
   padding: 16px;
+  direction: rtl;
 }
 
 .app-shell {
@@ -418,6 +421,10 @@ textarea {
   padding: 10px;
   max-height: 160px;
   overflow: auto;
+}
+
+#backlog-checkpoints {
+  display: none;
 }
 
 @media (max-width: 720px) {
