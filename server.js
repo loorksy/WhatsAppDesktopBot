@@ -41,12 +41,19 @@ function authMiddleware(req, res, next) {
 }
 
 app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === DASH_USER && password === DASH_PASS) {
-    const token = jwt.sign({ user: username }, JWT_SECRET, { expiresIn: '7d' });
+  const payload = req.body || {};
+  const { username, email, user, password, pass } = payload;
+  const providedUser = username || email || user;
+  const providedPass = password || pass;
+
+  if (providedUser === DASH_USER && providedPass === DASH_PASS) {
+    const token = jwt.sign({ user: providedUser }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
     return res.json({ success: true });
   }
+
+  const receivedFields = { username: username || null, email: email || null, user: user || null };
+  console.warn('Login failed. Received fields:', receivedFields);
   return res.status(401).json({ error: 'Invalid credentials' });
 });
 
