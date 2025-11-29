@@ -43,8 +43,8 @@ function authMiddleware(req, res, next) {
 app.post('/api/login', (req, res) => {
   const payload = req.body || {};
   const { username, email, user, password, pass } = payload;
-  const providedUser = username || email || user;
-  const providedPass = password || pass;
+  const providedUser = (username || email || user || '').trim();
+  const providedPass = (password || pass || '').trim();
 
   if (providedUser === DASH_USER && providedPass === DASH_PASS) {
     const token = jwt.sign({ user: providedUser }, JWT_SECRET, { expiresIn: '7d' });

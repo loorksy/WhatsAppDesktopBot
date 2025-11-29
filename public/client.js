@@ -21,18 +21,24 @@ function showLogin() {
 async function login() {
   const username = document.getElementById('login-user').value;
   const password = document.getElementById('login-pass').value;
-  const res = await fetch('/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email: username, user: username, password, pass: password }),
-  });
-  if (res.ok) {
-    document.getElementById('login-overlay').classList.add('hidden');
-    socket.connect();
-    init();
-  } else {
-    const data = await res.json();
-    document.getElementById('login-error').textContent = data.error || 'Login failed';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email: username, user: username, password, pass: password }),
+    });
+    if (res.ok) {
+      document.getElementById('login-error').textContent = '';
+      document.getElementById('login-overlay').classList.add('hidden');
+      socket.connect();
+      init();
+    } else {
+      const data = await res.json();
+      document.getElementById('login-error').textContent = data.error || 'Login failed';
+    }
+  } catch (err) {
+    document.getElementById('login-error').textContent = 'Login failed';
   }
 }
 
