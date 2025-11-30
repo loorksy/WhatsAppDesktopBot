@@ -302,14 +302,25 @@ function bindLoginPage() {
       e.preventDefault();
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
-      const res = await api.request('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      if (res.error) {
-        const err = document.getElementById('login-error');
-        if (err) err.textContent = 'بيانات غير صحيحة';
-        return;
+      const err = document.getElementById('login-error');
+      if (err) err.textContent = '';
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.error) {
+          if (err) err.textContent = data?.error || 'بيانات غير صحيحة';
+          return;
+        }
+        window.location.href = '/';
+      } catch (error) {
+        console.error('Login failed', error);
+        if (err) err.textContent = 'تعذر الاتصال بالخادم';
       }
-      currentUser = res.user;
-      window.location.href = '/';
     });
   }
 }
