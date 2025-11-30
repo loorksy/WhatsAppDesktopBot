@@ -4,7 +4,7 @@
   "description": "Production-ready WhatsApp bot with web dashboard",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.6",

@@ -22,10 +22,13 @@ const socket = io('/', { withCredentials: true, autoConnect: false });
 const isDashboard = window.location.pathname.includes('index.html') || window.location.pathname === '/';
 const isBulk = window.location.pathname.includes('bulk.html');
 const isAdminPage = window.location.pathname.includes('admin');
+const isLoginPage = window.location.pathname.includes('login');
 let statusState = { connected: false, running: false, linkState: 'not_linked', bulk: {}, lastChecked: {}, forward: {} };
 let savingForward = false;
 let currentUser = null;
 let appInitialized = false;
+let usersCache = [];
+let editingUser = null;
 
 const PENDING_KEY = 'wa_pending_names';
 const INTERACTED_KEY = 'wa_interacted_names';
@@ -33,6 +36,14 @@ const INTERACTION_IDS_KEY = 'wa_interaction_ids';
 let pendingNames = new Set();
 let interactedEntries = [];
 let seenInteractionIds = new Set();
+
+async function initLogin() {
+  bindLoginPage();
+  const me = await api.request('/api/me');
+  if (!me.error && me.user) {
+    window.location.href = '/';
+  }
+}
 
 function persistNameLists() {
   localStorage.setItem(PENDING_KEY, JSON.stringify([...pendingNames]));
@@ -76,10 +87,10 @@ function renderNameLists() {
   const pendingCount = document.getElementById('pending-count');
   const interactedCount = document.getElementById('interacted-count');
   if (pendingEl) {
-    pendingEl.innerHTML = [...pendingNames].map((n) => `<span class="pill-item">${n}</span>`).join('');
+    pendingEl.innerHTML = [...pendingNames].map((n) => `<div class="pill-item full-width">${n}</div>`).join('');
   }
   if (interactedEl) {
-    interactedEl.innerHTML = interactedEntries.map((n) => `<span class="pill-item">${n}</span>`).join('');
+    interactedEl.innerHTML = interactedEntries.map((n) => `<div class="pill-item full-width">${n}</div>`).join('');
   }
   if (pendingCount) pendingCount.textContent = pendingNames.size;
   if (interactedCount) interactedCount.textContent = interactedEntries.length;
@@ -180,17 +191,17 @@ function renderStatus(status) {
 }
 
 function showLoginOverlay(message) {
-  const overlay = document.getElementById('login-overlay');
-  const err = document.getElementById('login-error');
-  if (err && message) err.textContent = message;
-  if (overlay) overlay.classList.remove('hidden');
+  if (isLoginPage) {
+    const err = document.getElementById('login-error');
+    if (err && message) err.textContent = message;
+    return;
+  }
+  window.location.href = '/login.html';
 }
 
 function hideLoginOverlay() {
-  const overlay = document.getElementById('login-overlay');
   const err = document.getElementById('login-error');
   if (err) err.textContent = '';
-  if (overlay) overlay.classList.add('hidden');
 }
 
 function addLog(line, target = 'logs') {
@@ -282,6 +293,9 @@ function initSocket() {
 
 function bindCommon() {
   document.getElementById('qr-close')?.addEventListener('click', () => document.getElementById('qr-modal').classList.add('hidden'));
+}
+
+function bindLoginPage() {
   const loginForm = document.getElementById('login-form');
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
@@ -290,13 +304,12 @@ function bindCommon() {
       const password = document.getElementById('login-password').value;
       const res = await api.request('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
       if (res.error) {
-        showLoginOverlay('بيانات غير صحيحة');
+        const err = document.getElementById('login-error');
+        if (err) err.textContent = 'بيانات غير صحيحة';
         return;
       }
       currentUser = res.user;
-      hideLoginOverlay();
-      applyPermissionVisibility();
-      await startApp();
+      window.location.href = '/';
     });
   }
 }
@@ -304,10 +317,6 @@ function bindCommon() {
 async function ensureAuthenticated() {
   const me = await api.request('/api/me');
   if (me.error) {
-    if (me.status === 401) {
-      showLoginOverlay();
-      return false;
-    }
     showLoginOverlay('تعذر التحقق من الهوية');
     return false;
   }
@@ -318,6 +327,10 @@ async function ensureAuthenticated() {
 
 async function startApp() {
   bindCommon();
+  if (isLoginPage) {
+    await initLogin();
+    return;
+  }
   const authed = await ensureAuthenticated();
   if (!authed) return;
   if (appInitialized) return;
@@ -335,8 +348,10 @@ async function startApp() {
   if (isAdminPage) {
     await initAdmin();
   }
-  const logs = await api.request('/api/logs');
-  renderInteractionLogs(logs);
+  if (currentUser?.permissions?.can_view_logs) {
+    const logs = await api.request('/api/logs');
+    if (!logs.error) renderInteractionLogs(logs);
+  }
 }
 
 async function loadClients() {
@@ -374,11 +389,13 @@ async function initDashboard() {
   const perms = currentUser?.permissions || {};
   bindDashboard();
   bindForwardingControls();
-  if (perms.can_manage_lists || perms.can_send_messages) {
+  if (perms.can_manage_lists || perms.can_send_messages || perms.can_manage_forwarding) {
     await loadForwardGroups();
   }
   if (perms.can_manage_lists) {
     await loadClients();
+  }
+  if (perms.can_manage_settings || perms.can_manage_lists) {
     await loadSettings();
   }
   updateHoursLabel();
@@ -595,14 +612,19 @@ function renderBulkStatus(state) {
 }
 
 async function initBulk() {
+  const perms = currentUser?.permissions || {};
+  if (!perms.can_send_messages) {
+    const shell = document.querySelector('.app-shell');
+    if (shell) shell.innerHTML = '<p class="muted">لا تملك صلاحية الإرسال.</p>';
+    return;
+  }
   bindBulk();
   bindForwardingControls();
-  const perms = currentUser?.permissions || {};
-  if (perms.can_manage_lists || perms.can_send_messages) {
+  if (perms.can_manage_lists || perms.can_send_messages || perms.can_manage_forwarding) {
     await loadForwardGroups();
     await loadBulkGroups();
   }
-  if (perms.can_manage_lists) {
+  if (perms.can_manage_settings || perms.can_manage_lists) {
     await loadSettings();
   }
 }
@@ -621,7 +643,8 @@ async function initAdmin() {
 async function loadUsers() {
   const res = await api.request('/api/users');
   if (res.error) return;
-  renderUsers(res);
+  usersCache = res || [];
+  renderUsers(usersCache);
 }
 
 function renderUsers(users) {
@@ -631,11 +654,41 @@ function renderUsers(users) {
   (users || []).forEach((u) => {
     const item = document.createElement('div');
     item.className = 'user-row';
-    item.innerHTML = `<div>${u.email}</div><div class="muted small">${
-      u.permissions?.is_admin ? 'مدير' : 'مستخدم'
-    }</div>`;
+    const roleLabel = u.permissions?.is_admin ? 'مدير' : 'مستخدم';
+    item.innerHTML = `
+      <div>
+        <div>${u.email}</div>
+        <div class="muted small">${roleLabel}</div>
+      </div>
+      <div class="user-actions">
+        <button class="ghost" data-edit="${u.email}">تعديل</button>
+        <button class="danger ghost" data-delete="${u.email}">حذف</button>
+      </div>
+    `;
     list.appendChild(item);
   });
+}
+
+function openEditModal(user) {
+  editingUser = user;
+  document.getElementById('edit-email').value = user.email;
+  document.getElementById('edit-password').value = '';
+  const perms = user.permissions || {};
+  document.getElementById('edit-admin').checked = !!perms.is_admin;
+  document.getElementById('edit-control').checked = !!perms.can_control_bot;
+  document.getElementById('edit-settings').checked = !!perms.can_manage_settings;
+  document.getElementById('edit-backlog').checked = !!perms.can_scan_backlog;
+  document.getElementById('edit-send').checked = !!perms.can_send_messages;
+  document.getElementById('edit-lists').checked = !!perms.can_manage_lists;
+  document.getElementById('edit-forward').checked = !!perms.can_manage_forwarding;
+  document.getElementById('edit-logs').checked = !!perms.can_view_logs;
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+  editingUser = null;
+  document.getElementById('edit-user-form')?.reset();
+  document.getElementById('edit-modal')?.classList.add('hidden');
 }
 
 function bindAdmin() {
@@ -647,9 +700,13 @@ function bindAdmin() {
       const password = document.getElementById('user-password').value;
       const permissions = {
         is_admin: document.getElementById('perm-admin').checked,
+        can_control_bot: document.getElementById('perm-control').checked,
+        can_manage_settings: document.getElementById('perm-settings').checked,
         can_scan_backlog: document.getElementById('perm-backlog').checked,
         can_send_messages: document.getElementById('perm-send').checked,
         can_manage_lists: document.getElementById('perm-lists').checked,
+        can_manage_forwarding: document.getElementById('perm-forward').checked,
+        can_view_logs: document.getElementById('perm-logs').checked,
       };
       const res = await api.request('/api/users', {
         method: 'POST',
@@ -661,6 +718,63 @@ function bindAdmin() {
       }
       form.reset();
       showToast('تم إنشاء المستخدم');
+      await loadUsers();
+    });
+  }
+
+  const list = document.getElementById('users-list');
+  if (list) {
+    list.addEventListener('click', async (e) => {
+      const target = e.target;
+      if (target.dataset.edit) {
+        const user = usersCache.find((u) => u.email === target.dataset.edit);
+        if (user) openEditModal(user);
+      }
+      if (target.dataset.delete) {
+        const email = target.dataset.delete;
+        const res = await api.request(`/api/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+        if (res.error) {
+          showToast('تعذر حذف المستخدم');
+          return;
+        }
+        showToast('تم حذف المستخدم');
+        await loadUsers();
+      }
+    });
+  }
+
+  const editClose = document.getElementById('edit-close');
+  if (editClose) editClose.addEventListener('click', closeEditModal);
+
+  const editForm = document.getElementById('edit-user-form');
+  if (editForm) {
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!editingUser) return;
+      const password = document.getElementById('edit-password').value;
+      const payload = {
+        permissions: {
+          is_admin: document.getElementById('edit-admin').checked,
+          can_control_bot: document.getElementById('edit-control').checked,
+          can_manage_settings: document.getElementById('edit-settings').checked,
+          can_scan_backlog: document.getElementById('edit-backlog').checked,
+          can_send_messages: document.getElementById('edit-send').checked,
+          can_manage_lists: document.getElementById('edit-lists').checked,
+          can_manage_forwarding: document.getElementById('edit-forward').checked,
+          can_view_logs: document.getElementById('edit-logs').checked,
+        },
+      };
+      if (password) payload.password = password;
+      const res = await api.request(`/api/users/${encodeURIComponent(editingUser.email)}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      if (res.error) {
+        showToast('فشل تحديث المستخدم');
+        return;
+      }
+      showToast('تم تحديث المستخدم');
+      closeEditModal();
       await loadUsers();
     });
   }

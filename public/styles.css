@@ -28,6 +28,27 @@ body {
   direction: rtl;
 }
 
+body.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: var(--bg);
+}
+
+.login-wrapper {
+  width: 100%;
+  max-width: 440px;
+}
+
+.login-card.standalone {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
 .app-shell {
   max-width: 1100px;
   margin: 0 auto;
@@ -303,6 +324,10 @@ textarea {
   display: block;
 }
 
+.pill-item.full-width {
+  width: 100%;
+}
+
 .badge {
   background: rgba(255, 255, 255, 0.08);
   padding: 4px 10px;
@@ -504,6 +529,11 @@ textarea {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.user-actions {
+  display: flex;
+  gap: 8px;
 }
 
 @media (max-width: 720px) {

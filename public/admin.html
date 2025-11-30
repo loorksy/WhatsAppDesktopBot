@@ -16,6 +16,7 @@
       <nav class="header-actions">
         <a class="pill" href="index.html">الرئيسية</a>
         <a class="pill" href="bulk.html">الإرسال الجماعي</a>
+        <a class="pill" href="login.html">تسجيل الدخول</a>
       </nav>
     </header>
 
@@ -40,6 +41,20 @@
           </label>
         </div>
         <div class="field toggle-field">
+          <label>تشغيل/إيقاف البوت</label>
+          <label class="switch">
+            <input type="checkbox" id="perm-control" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>إدارة الإعدادات</label>
+          <label class="switch">
+            <input type="checkbox" id="perm-settings" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
           <label>السماح بفحص الأرشيف</label>
           <label class="switch">
             <input type="checkbox" id="perm-backlog" />
@@ -60,6 +75,20 @@
             <span class="slider"></span>
           </label>
         </div>
+        <div class="field toggle-field">
+          <label>إدارة إعادة التوجيه</label>
+          <label class="switch">
+            <input type="checkbox" id="perm-forward" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>عرض السجلات</label>
+          <label class="switch">
+            <input type="checkbox" id="perm-logs" />
+            <span class="slider"></span>
+          </label>
+        </div>
         <div class="field" style="grid-column: 1 / -1;">
           <button type="submit" class="primary">إضافة مستخدم</button>
         </div>
@@ -71,16 +100,80 @@
     </section>
   </div>
 
-  <div id="login-overlay" class="overlay hidden">
-    <form id="login-form" class="login-card">
-      <h2>تسجيل الدخول</h2>
-      <label for="login-email">البريد الإلكتروني</label>
-      <input type="email" id="login-email" required />
-      <label for="login-password">كلمة المرور</label>
-      <input type="password" id="login-password" required />
-      <div id="login-error" class="error-text"></div>
-      <button type="submit" class="primary">دخول</button>
-    </form>
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-content">
+      <button id="edit-close" class="ghost close">✕</button>
+      <h3>تعديل مستخدم</h3>
+      <form id="edit-user-form" class="field-grid">
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="edit-email" disabled />
+        </div>
+        <div class="field">
+          <label for="edit-password">كلمة المرور الجديدة (اختياري)</label>
+          <input type="password" id="edit-password" placeholder="اتركه فارغًا للإبقاء على الحالية" />
+        </div>
+        <div class="field toggle-field">
+          <label>منح صلاحية المدير</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-admin" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>تشغيل/إيقاف البوت</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-control" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>إدارة الإعدادات</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-settings" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>السماح بفحص الأرشيف</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-backlog" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>السماح بالإرسال</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-send" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>إدارة القوائم</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-lists" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>إدارة إعادة التوجيه</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-forward" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field toggle-field">
+          <label>عرض السجلات</label>
+          <label class="switch">
+            <input type="checkbox" id="edit-logs" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <button type="submit" class="primary">حفظ التعديلات</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>

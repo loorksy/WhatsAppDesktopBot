@@ -17,6 +17,17 @@ const TOKEN_NAME = 'token';
 const MASTER_EMAIL = 'loorksy@gmail.com';
 const MASTER_PASSWORD = 'Ahmetlork@29cb';
 
+const DEFAULT_PERMISSIONS = {
+  can_scan_backlog: false,
+  can_send_messages: false,
+  can_manage_lists: false,
+  can_manage_settings: false,
+  can_control_bot: false,
+  can_manage_forwarding: false,
+  can_view_logs: false,
+  is_admin: false,
+};
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -32,35 +43,48 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+function mergePermissions(perms = {}, forceAll = false) {
+  const merged = { ...DEFAULT_PERMISSIONS, ...(perms || {}) };
+  if (forceAll) {
+    Object.keys(DEFAULT_PERMISSIONS).forEach((k) => {
+      merged[k] = true;
+    });
+  }
+  return merged;
+}
+
 async function ensureMasterUser() {
   await store.ensure();
   const users = (await store.read('users.json')) || [];
-  const hasMaster = users.some((u) => u.email === MASTER_EMAIL);
-  if (!hasMaster) {
+  const idx = users.findIndex((u) => u.email === MASTER_EMAIL);
+  if (idx === -1) {
     const master = {
       email: MASTER_EMAIL,
       password: hashPassword(MASTER_PASSWORD),
-      permissions: {
-        can_scan_backlog: true,
-        can_send_messages: true,
-        can_manage_lists: true,
-        is_admin: true,
-      },
+      permissions: mergePermissions({}, true),
     };
     users.push(master);
     await store.write('users.json', users);
     console.log('Master admin user created');
+    return;
+  }
+  const existing = users[idx];
+  const mergedPerms = mergePermissions(existing.permissions, true);
+  if (JSON.stringify(existing.permissions || {}) !== JSON.stringify(mergedPerms)) {
+    users[idx] = { ...existing, permissions: mergedPerms };
+    await store.write('users.json', users);
+    console.log('Master admin permissions updated');
   }
 }
 
 function sanitizeUser(user) {
   if (!user) return null;
   const { password, ...rest } = user;
-  return rest;
+  return { ...rest, permissions: mergePermissions(user.permissions || {}) };
 }
 
 function signToken(user) {
-  const payload = { email: user.email, permissions: user.permissions || {} };
+  const payload = { email: user.email, permissions: mergePermissions(user.permissions || {}) };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
@@ -83,6 +107,7 @@ async function authMiddleware(req, res, next) {
 
 function requirePermission(key) {
   return (req, res, next) => {
+    if (req.user?.permissions?.is_admin) return next();
     if (!req.user || !req.user.permissions || !req.user.permissions[key]) {
       return res.status(403).json({ error: 'FORBIDDEN' });
     }
@@ -92,9 +117,18 @@ function requirePermission(key) {
 
 const requireAdmin = requirePermission('is_admin');
 
+function requireAny(keys = []) {
+  return (req, res, next) => {
+    const perms = req.user?.permissions || {};
+    if (keys.some((k) => perms[k])) return next();
+    return res.status(403).json({ error: 'FORBIDDEN' });
+  };
+}
+
 function requireAnyPermission(keys = []) {
   return (req, res, next) => {
     const perms = req.user?.permissions || {};
+    if (perms.is_admin) return next();
     if (keys.some((k) => perms[k])) return next();
     return res.status(403).json({ error: 'FORBIDDEN' });
   };
@@ -103,6 +137,10 @@ function requireAnyPermission(keys = []) {
 const bot = new WhatsAppBot();
 bot.init();
 ensureMasterUser();
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
 
 function handleWaNotReady(res, err) {
   if (err && (err.message === 'WA_NOT_READY' || err.code === 'WA_NOT_READY')) {
@@ -140,12 +178,12 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-app.post('/api/start', requireAdmin, async (req, res) => {
+app.post('/api/start', requireAny(['is_admin', 'can_control_bot']), async (req, res) => {
   await bot.setRunning(true);
   res.json({ success: true });
 });
 
-app.post('/api/stop', requireAdmin, async (req, res) => {
+app.post('/api/stop', requireAny(['is_admin', 'can_control_bot']), async (req, res) => {
   await bot.setRunning(false);
   res.json({ success: true });
 });
@@ -154,7 +192,7 @@ app.get('/api/qr', (req, res) => {
   res.json({ qr: bot.getLastQr() });
 });
 
-app.post('/api/session/clear', requireAdmin, async (req, res) => {
+app.post('/api/session/clear', requireAny(['is_admin', 'can_control_bot']), async (req, res) => {
   const sessionPath = path.join(store.dataDir, 'sessions');
   if (await fs.pathExists(sessionPath)) {
     await fs.remove(sessionPath);
@@ -162,7 +200,7 @@ app.post('/api/session/clear', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-app.get('/api/groups', requireAnyPermission(['can_manage_lists', 'can_send_messages']), async (req, res) => {
+app.get('/api/groups', requireAnyPermission(['can_manage_lists', 'can_send_messages', 'can_manage_forwarding']), async (req, res) => {
   try {
     const groups = await bot.refreshGroups();
     res.json(groups);
@@ -192,12 +230,12 @@ app.post('/api/clients/clear', requirePermission('can_manage_lists'), async (req
   res.json({ success: true });
 });
 
-app.get('/api/settings', async (req, res) => {
+app.get('/api/settings', requireAnyPermission(['can_manage_settings', 'can_manage_lists', 'can_manage_forwarding']), async (req, res) => {
   const settings = await store.read('settings.json');
   res.json(settings);
 });
 
-app.post('/api/settings', requirePermission('can_manage_lists'), async (req, res) => {
+app.post('/api/settings', requireAny(['is_admin', 'can_manage_settings', 'can_manage_lists', 'can_manage_forwarding']), async (req, res) => {
   try {
     await bot.setSettings(req.body);
     res.json({ success: true });
@@ -256,15 +294,15 @@ app.post('/api/bulk/stop', requirePermission('can_send_messages'), async (req, r
   res.json({ success: true });
 });
 
-app.get('/api/bulk/status', (req, res) => {
+app.get('/api/bulk/status', requirePermission('can_send_messages'), (req, res) => {
   res.json(bot.getBulkPublicState());
 });
 
-app.get('/api/backlog/last', (req, res) => {
+app.get('/api/backlog/last', requirePermission('can_scan_backlog'), (req, res) => {
   res.json(bot.lastChecked || {});
 });
 
-app.get('/api/logs', (req, res) => {
+app.get('/api/logs', requirePermission('can_view_logs'), (req, res) => {
   res.json(bot.getInteractionLogs());
 });
 
@@ -287,28 +325,45 @@ app.post('/api/users', requireAdmin, async (req, res) => {
   const user = {
     email,
     password: hashPassword(password),
-    permissions: {
-      can_scan_backlog: !!permissions.can_scan_backlog,
-      can_send_messages: !!permissions.can_send_messages,
-      can_manage_lists: !!permissions.can_manage_lists,
-      is_admin: !!permissions.is_admin,
-    },
+    permissions: mergePermissions({ ...permissions }),
   };
   users.push(user);
   await store.write('users.json', users);
   res.json({ success: true, user: sanitizeUser(user) });
 });
 
-app.get('/api/forward/state', (req, res) => {
+app.put('/api/users/:email', requireAdmin, async (req, res) => {
+  const { email } = req.params;
+  const { password, permissions = {} } = req.body || {};
+  const users = (await store.read('users.json')) || [];
+  const idx = users.findIndex((u) => u.email === email);
+  if (idx === -1) return res.status(404).json({ error: 'NOT_FOUND' });
+  const updated = { ...users[idx] };
+  if (password) updated.password = hashPassword(password);
+  updated.permissions = mergePermissions(permissions);
+  users[idx] = updated;
+  await store.write('users.json', users);
+  res.json({ success: true, user: sanitizeUser(updated) });
+});
+
+app.delete('/api/users/:email', requireAdmin, async (req, res) => {
+  const { email } = req.params;
+  let users = (await store.read('users.json')) || [];
+  users = users.filter((u) => u.email !== email);
+  await store.write('users.json', users);
+  res.json({ success: true });
+});
+
+app.get('/api/forward/state', requireAnyPermission(['can_manage_forwarding', 'can_manage_lists', 'can_send_messages']), (req, res) => {
   res.json(bot.getForwardState());
 });
 
-app.post('/api/forward/flush', requirePermission('can_send_messages'), async (req, res) => {
+app.post('/api/forward/flush', requireAny(['can_manage_forwarding', 'can_send_messages']), async (req, res) => {
   await bot.flushForwardBatch(true);
   res.json({ success: true });
 });
 
-app.post('/api/forward/clear', requirePermission('can_send_messages'), async (req, res) => {
+app.post('/api/forward/clear', requireAny(['can_manage_forwarding', 'can_send_messages']), async (req, res) => {
   await bot.clearForwardQueue();
   res.json({ success: true });
 });
