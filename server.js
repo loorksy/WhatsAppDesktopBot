@@ -36,6 +36,7 @@ const io = socketIo(server, {
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -140,6 +141,24 @@ ensureMasterUser();
 
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.redirect('/login?error=missing_credentials');
+  }
+  const user = await findUserByEmail(email);
+  if (!user) {
+    return res.redirect('/login?error=invalid_credentials');
+  }
+  const hashed = hashPassword(password);
+  if (hashed !== user.password) {
+    return res.redirect('/login?error=invalid_credentials');
+  }
+  const token = signToken(user);
+  res.cookie(TOKEN_NAME, token, { httpOnly: true, sameSite: 'lax' });
+  return res.redirect('/');
 });
 
 function handleWaNotReady(res, err) {
