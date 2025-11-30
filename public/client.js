@@ -23,6 +23,7 @@ const isDashboard = window.location.pathname.includes('index.html') || window.lo
 const isBulk = window.location.pathname.includes('bulk.html');
 const isAdminPage = window.location.pathname.includes('admin');
 const isLoginPage = window.location.pathname.includes('login');
+const MASTER_EMAIL = 'loorksy@gmail.com';
 let statusState = { connected: false, running: false, linkState: 'not_linked', bulk: {}, lastChecked: {}, forward: {} };
 let savingForward = false;
 let currentUser = null;
@@ -666,14 +667,16 @@ function renderUsers(users) {
     const item = document.createElement('div');
     item.className = 'user-row';
     const roleLabel = u.permissions?.is_admin ? 'مدير' : 'مستخدم';
+    const isMaster = u.email === MASTER_EMAIL;
+    const deleteBtn = isMaster ? '' : `<button class="danger ghost" data-delete="${u.email}">حذف</button>`;
     item.innerHTML = `
       <div>
         <div>${u.email}</div>
         <div class="muted small">${roleLabel}</div>
       </div>
       <div class="user-actions">
-        <button class="ghost" data-edit="${u.email}">تعديل</button>
-        <button class="danger ghost" data-delete="${u.email}">حذف</button>
+        <button class="ghost" data-edit="${u.email}" data-master="${isMaster ? '1' : ''}">تعديل</button>
+        ${deleteBtn}
       </div>
     `;
     list.appendChild(item);
@@ -685,7 +688,13 @@ function openEditModal(user) {
   document.getElementById('edit-email').value = user.email;
   document.getElementById('edit-password').value = '';
   const perms = user.permissions || {};
-  document.getElementById('edit-admin').checked = !!perms.is_admin;
+  const isMaster = user.email === MASTER_EMAIL;
+  const adminToggle = document.getElementById('edit-admin');
+  adminToggle.checked = true;
+  adminToggle.disabled = isMaster;
+  if (!isMaster) {
+    adminToggle.checked = !!perms.is_admin;
+  }
   document.getElementById('edit-control').checked = !!perms.can_control_bot;
   document.getElementById('edit-settings').checked = !!perms.can_manage_settings;
   document.getElementById('edit-backlog').checked = !!perms.can_scan_backlog;

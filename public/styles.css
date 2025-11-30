@@ -385,6 +385,9 @@ textarea {
   border-radius: 16px;
   border: 1px solid var(--border);
   position: relative;
+  width: min(480px, 95vw);
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .modal-content img {

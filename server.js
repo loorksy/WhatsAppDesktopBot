@@ -367,6 +367,9 @@ app.put('/api/users/:email', requireAdmin, async (req, res) => {
 
 app.delete('/api/users/:email', requireAdmin, async (req, res) => {
   const { email } = req.params;
+  if (email === MASTER_EMAIL) {
+    return res.status(403).json({ error: 'PROTECTED_USER' });
+  }
   let users = (await store.read('users.json')) || [];
   users = users.filter((u) => u.email !== email);
   await store.write('users.json', users);
