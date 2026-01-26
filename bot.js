@@ -63,6 +63,32 @@ class WhatsAppBot extends EventEmitter {
       authStrategy: new LocalAuth({ dataPath: path.join(store.dataDir, 'sessions') }),
       puppeteer: puppeteerArgs,
     });
+// ===============================
+// 🔒 WhatsApp Web BUG PATCH
+// Disable sendSeen / markUnread to prevent Bulk crashes
+// ===============================
+this.client.on('ready', async () => {
+  try {
+    const page = this.client.pupPage;
+    if (!page) return;
+
+    await page.evaluate(() => {
+      try {
+        if (window.WWebJS && window.WWebJS.sendSeen) {
+          window.WWebJS.sendSeen = async () => {};
+        }
+
+        if (window.Store && window.Store.Chat && window.Store.Chat._models) {
+          Object.values(window.Store.Chat._models).forEach(chat => {
+            if (chat.sendSeen) chat.sendSeen = async () => {};
+            if (chat.markUnread) chat.markUnread = async () => {};
+            if (chat.markRead) chat.markRead = async () => {};
+          });
+        }
+      } catch (e) {}
+    });
+  } catch (err) {}
+});
 
     this.registerEvents();
     this.linkState = 'linking';
