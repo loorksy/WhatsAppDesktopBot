@@ -5,6 +5,6 @@
   "groupId": "120363425998967408@g.us",
   "paused": false,
   "messages": [],
-  "delaySeconds": 0.0001,
-  "rpm": 9999
+  "delaySeconds": 0.00001,
+  "rpm": 99999
 }
