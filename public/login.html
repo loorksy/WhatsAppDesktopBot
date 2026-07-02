@@ -4,18 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>تسجيل الدخول</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="login-page">
-  <div class="login-wrapper">
+  <div class="login-wrap">
     <div class="login-brand">
-      <span class="login-brand-icon">💬</span>
+      <div class="login-brand-icon"><i class="fab fa-whatsapp"></i></div>
       <h1>واتساب بوت</h1>
-      <p class="muted">لوحة التحكم</p>
+      <p>لوحة التحكم</p>
     </div>
-    <div class="login-card standalone">
-      <h2 style="margin: 0 0 4px; font-size: 20px;">تسجيل الدخول</h2>
-      <p class="muted">الرجاء إدخال بيانات حسابك</p>
+    <div class="login-card">
+      <h2>تسجيل الدخول</h2>
+      <p class="muted">أدخل بيانات حسابك</p>
       <form class="field-grid" action="/login" method="POST">
         <div class="field">
           <label for="login-email">البريد الإلكتروني</label>

@@ -35,6 +35,9 @@ class WhatsAppBot extends EventEmitter {
     this.forwardQueue = [];
     this.forwardMeta = { lastForwardedAt: null };
     this.forwardFlushing = false;
+    this.nameTracking = { pending: [], interacted: [], seenIds: [] };
+    this.reconnectTimer = null;
+    this.reconnectAttempts = 0;
   }
 
   async init() {
@@ -54,14 +57,24 @@ class WhatsAppBot extends EventEmitter {
     this.skippedLogs = await store.read('skippedLogs.json');
     this.forwardQueue = await store.read('forwardQueue.json');
     this.forwardMeta = await store.read('forwardMeta.json');
+    this.nameTracking = await store.read('nameTracking.json');
+    if (!(this.nameTracking.pending || []).length && !(this.nameTracking.interacted || []).length && this.clients.length) {
+      this.syncNameTrackingFromClients();
+      await store.write('nameTracking.json', this.nameTracking);
+    }
 
     this.initialized = true;
     const hasSession = await this.hasStoredSession();
     if (hasSession) {
-      this.createClient();
-      this.linkState = 'linking';
-      await this.client.initialize();
-      this.emitLog('Bot initialized with stored session.');
+      try {
+        this.createClient();
+        this.linkState = 'linking';
+        await this.client.initialize();
+        this.emitLog('Bot initialized with stored session.');
+      } catch (err) {
+        this.linkState = 'not_linked';
+        this.emitLog(`Session restore failed: ${err.message}`);
+      }
     } else {
       this.linkState = 'not_linked';
       this.emitLog('WhatsApp not linked. Choose QR or phone number to connect.');
@@ -131,6 +144,7 @@ class WhatsAppBot extends EventEmitter {
   }
 
   async destroyClient() {
+    this.clearReconnectTimer();
     if (this.client) {
       try {
         await this.client.destroy();
@@ -232,8 +246,94 @@ class WhatsAppBot extends EventEmitter {
       forwardTargetChatId: '',
       forwardBatchSize: 10,
       forwardFlushOnIdle: true,
+      bulkDelaySeconds: 2,
+      bulkRpm: 10,
       ...this.settings,
     };
+  }
+
+  getNameTrackingPublic() {
+    return {
+      pending: [...(this.nameTracking?.pending || [])],
+      interacted: [...(this.nameTracking?.interacted || [])],
+    };
+  }
+
+  async persistNameTracking() {
+    if (this.nameTracking.seenIds.length > 5000) {
+      this.nameTracking.seenIds = this.nameTracking.seenIds.slice(-5000);
+    }
+    await store.write('nameTracking.json', this.nameTracking);
+    this.emit('names:update', this.getNameTrackingPublic());
+  }
+
+  syncNameTrackingFromClients() {
+    const names = (this.clients || []).map((c) => c.name).filter(Boolean);
+    const interactedSet = new Set(this.nameTracking.interacted || []);
+    const pendingSet = new Set(this.nameTracking.pending || []);
+    names.forEach((name) => {
+      if (!interactedSet.has(name)) pendingSet.add(name);
+    });
+    const nameSet = new Set(names);
+    this.nameTracking.pending = [...pendingSet].filter((n) => nameSet.has(n) && !interactedSet.has(n));
+    this.nameTracking.interacted = [...interactedSet].filter((n) => nameSet.has(n));
+  }
+
+  async trackClientInteraction(name, id) {
+    if (!name) return;
+    if (id && (this.nameTracking.seenIds || []).includes(id)) return;
+    if (id) this.nameTracking.seenIds.push(id);
+    this.nameTracking.pending = (this.nameTracking.pending || []).filter((n) => n !== name);
+    if (!(this.nameTracking.interacted || []).includes(name)) {
+      this.nameTracking.interacted.push(name);
+    }
+    await this.persistNameTracking();
+  }
+
+  async resetNameTracking() {
+    this.nameTracking = { pending: [], interacted: [], seenIds: [] };
+    this.syncNameTrackingFromClients();
+    await this.persistNameTracking();
+  }
+
+  clearReconnectTimer() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  scheduleReconnect(reason) {
+    if (this.reconnectTimer || this.authMode) return;
+    const delay = Math.min(60000, 5000 * Math.max(1, this.reconnectAttempts + 1));
+    this.emitLog(`Scheduling reconnect in ${Math.round(delay / 1000)}s (${reason || 'unknown'})`);
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      if (!(await this.hasStoredSession())) return;
+      this.attemptReconnect();
+    }, delay);
+  }
+
+  async attemptReconnect() {
+    try {
+      const hasSession = await this.hasStoredSession();
+      if (!hasSession) {
+        this.linkState = 'not_linked';
+        this.emitStatus();
+        return;
+      }
+      await this.destroyClient();
+      this.createClient();
+      this.linkState = 'linking';
+      this.emitStatus();
+      await this.client.initialize();
+      this.reconnectAttempts = 0;
+      this.emitLog('Reconnect attempt started.');
+    } catch (err) {
+      this.reconnectAttempts += 1;
+      this.emitLog(`Reconnect failed: ${err.message}`);
+      this.scheduleReconnect('retry');
+    }
   }
 
   async refreshGroupDirectory() {
@@ -286,6 +386,8 @@ class WhatsAppBot extends EventEmitter {
       this.lastQr = null;
       this.lastPairingCode = null;
       this.authMode = null;
+      this.reconnectAttempts = 0;
+      this.clearReconnectTimer();
       this.emitStatus();
       this.emitLog('WhatsApp client ready.');
       this.refreshGroupDirectory();
@@ -326,17 +428,22 @@ class WhatsAppBot extends EventEmitter {
       this.linkState = 'disconnected';
       this.emitStatus();
       this.emitLog(`Disconnected: ${reason}`);
+      this.scheduleReconnect(reason);
     });
 
     this.client.on('message', async (message) => {
-      if (message?.from?.endsWith('@g.us')) {
-        await this.recordGroupMeta(message.from, message._data?.notifyName || message._data?.sender?.pushname);
-        if (!this.lastChecked[message.from]) {
-          this.lastChecked[message.from] = (message.timestamp || Date.now() / 1000) * 1000;
-          await store.write('lastChecked.json', this.lastChecked);
+      try {
+        if (message?.from?.endsWith('@g.us')) {
+          await this.recordGroupMeta(message.from, message._data?.notifyName || message._data?.sender?.pushname);
+          if (!this.lastChecked[message.from]) {
+            this.lastChecked[message.from] = (message.timestamp || Date.now() / 1000) * 1000;
+            await store.write('lastChecked.json', this.lastChecked);
+          }
         }
+        await this.handleIncoming(message);
+      } catch (err) {
+        this.emitLog(`Message handler error: ${err.message}`);
       }
-      this.handleIncoming(message);
     });
   }
 
@@ -526,6 +633,9 @@ class WhatsAppBot extends EventEmitter {
       id: message.id?._serialized,
     };
     this.interactedLogs = await store.appendLimited('interactedLogs.json', entry, 2000);
+    if (matchResult?.match) {
+      await this.trackClientInteraction(matchResult.match, message.id?._serialized);
+    }
     this.emit('interaction:log', { interacted: this.interactedLogs, skipped: this.skippedLogs });
   }
 
@@ -699,6 +809,8 @@ class WhatsAppBot extends EventEmitter {
     });
     this.clients = parsed;
     await store.write('clients.json', this.clients);
+    this.syncNameTrackingFromClients();
+    await this.persistNameTracking();
     this.emitLog('Clients updated.');
   }
 

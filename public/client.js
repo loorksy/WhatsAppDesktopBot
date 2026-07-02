@@ -31,54 +31,32 @@ let appInitialized = false;
 let usersCache = [];
 let editingUser = null;
 
-const PENDING_KEY = 'wa_pending_names';
-const INTERACTED_KEY = 'wa_interacted_names';
-const INTERACTION_IDS_KEY = 'wa_interaction_ids';
-let pendingNames = new Set();
+let pendingNames = [];
 let interactedEntries = [];
-let seenInteractionIds = new Set();
 
-async function initLogin() {
-  bindLoginPage();
-  const me = await api.request('/api/me');
-  if (!me.error && me.user) {
-    window.location.href = '/';
-  }
+function initLayout() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const open = () => {
+    sidebar?.classList.add('open');
+    overlay?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  const close = () => {
+    sidebar?.classList.remove('open');
+    overlay?.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  document.getElementById('menuToggle')?.addEventListener('click', open);
+  document.getElementById('sidebarClose')?.addEventListener('click', close);
+  overlay?.addEventListener('click', close);
 }
 
-function persistNameLists() {
-  localStorage.setItem(PENDING_KEY, JSON.stringify([...pendingNames]));
-  localStorage.setItem(INTERACTED_KEY, JSON.stringify(interactedEntries));
-  localStorage.setItem(INTERACTION_IDS_KEY, JSON.stringify([...seenInteractionIds]));
-}
-
-function loadNameLists(clients) {
-  const storedPending = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
-  const storedInteracted = JSON.parse(localStorage.getItem(INTERACTED_KEY) || '[]');
-  const storedIds = JSON.parse(localStorage.getItem(INTERACTION_IDS_KEY) || '[]');
-  pendingNames = new Set(storedPending || []);
-  interactedEntries = storedInteracted || [];
-  seenInteractionIds = new Set(storedIds || []);
-
-  const clientNames = (clients || []).map((c) => c.name).filter(Boolean);
-  if (pendingNames.size === 0 && interactedEntries.length === 0 && clientNames.length) {
-    pendingNames = new Set(clientNames);
-  } else {
-    clientNames.forEach((name) => {
-      if (!pendingNames.has(name) && !interactedEntries.includes(name)) {
-        pendingNames.add(name);
-      }
-    });
-  }
-  persistNameLists();
-  renderNameLists();
-}
-
-function resetNameLists() {
-  pendingNames = new Set();
-  interactedEntries = [];
-  seenInteractionIds = new Set();
-  persistNameLists();
+async function loadNameListsFromServer() {
+  const data = await api.request('/api/names');
+  if (data.error) return;
+  pendingNames = data.pending || [];
+  interactedEntries = data.interacted || [];
   renderNameLists();
 }
 
@@ -88,24 +66,27 @@ function renderNameLists() {
   const pendingCount = document.getElementById('pending-count');
   const interactedCount = document.getElementById('interacted-count');
   if (pendingEl) {
-    pendingEl.innerHTML = [...pendingNames].map((n) => `<div class="pill-item full-width">${n}</div>`).join('');
+    pendingEl.innerHTML = pendingNames.map((n) => `<div class="pill-item">${n}</div>`).join('');
   }
   if (interactedEl) {
-    interactedEl.innerHTML = interactedEntries.map((n) => `<div class="pill-item full-width">${n}</div>`).join('');
+    interactedEl.innerHTML = interactedEntries.map((n) => `<div class="pill-item">${n}</div>`).join('');
   }
-  if (pendingCount) pendingCount.textContent = pendingNames.size;
-  if (interactedCount) interactedCount.textContent = interactedEntries.length;
+  if (pendingCount) pendingCount.textContent = String(pendingNames.length);
+  if (interactedCount) interactedCount.textContent = String(interactedEntries.length);
 }
 
-function handleInteractionEntry(entry) {
-  const name = entry?.match || entry?.name || entry?.clientName;
-  const id = entry?.id;
-  if (!name || (id && seenInteractionIds.has(id))) return;
-  if (id) seenInteractionIds.add(id);
-  if (pendingNames.has(name)) pendingNames.delete(name);
-  interactedEntries.push(name);
-  persistNameLists();
+function handleNamesUpdate(payload) {
+  pendingNames = payload?.pending || [];
+  interactedEntries = payload?.interacted || [];
   renderNameLists();
+}
+
+async function initLogin() {
+  bindLoginPage();
+  const me = await api.request('/api/me');
+  if (!me.error && me.user) {
+    window.location.href = '/';
+  }
 }
 
 function handleApiError(data, context) {
@@ -141,9 +122,14 @@ function applyPermissionVisibility() {
     }
   });
   const adminLink = document.getElementById('admin-link');
+  const mobileAdminLink = document.getElementById('mobile-admin-link');
   if (adminLink) {
     if (perms.is_admin) adminLink.classList.remove('hidden-permission');
     else adminLink.classList.add('hidden-permission');
+  }
+  if (mobileAdminLink) {
+    if (perms.is_admin) mobileAdminLink.classList.remove('hidden-permission');
+    else mobileAdminLink.classList.add('hidden-permission');
   }
 }
 
@@ -156,9 +142,9 @@ function setStatusPill(id, text, cls) {
 }
 
 function formatTs(ts) {
-  if (!ts) return 'غير متوفر';
+  if (!ts) return '—';
   const d = new Date(ts);
-  return isNaN(d.getTime()) ? 'غير متوفر' : d.toLocaleString();
+  return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-GB', { hour12: false });
 }
 
 function renderStatus(status) {
@@ -308,8 +294,8 @@ function addLog(line, target = 'logs') {
 }
 
 function renderInteractionLogs(payload) {
-  const interacted = payload?.interacted || [];
-  interacted.forEach((e) => handleInteractionEntry(e));
+  /* interaction logs for terminal; name tracking comes from server via names:update */
+  void payload;
 }
 
 function renderCheckpoints(map) {
@@ -388,6 +374,7 @@ function initSocket() {
   socket.on('bulk:update', renderBulkStatus);
   socket.on('backlog:update', renderBacklog);
   socket.on('interaction:log', renderInteractionLogs);
+  socket.on('names:update', handleNamesUpdate);
   socket.on('connect_error', (err) => {
     if (err && err.message === 'UNAUTHORIZED') {
       showLoginOverlay('الرجاء تسجيل الدخول');
@@ -499,6 +486,7 @@ async function ensureAuthenticated() {
 }
 
 async function startApp() {
+  initLayout();
   bindCommon();
   if (isLoginPage) {
     await initLogin();
@@ -521,6 +509,9 @@ async function startApp() {
   if (isAdminPage) {
     await initAdmin();
   }
+  if (currentUser?.permissions?.can_view_logs || currentUser?.permissions?.can_manage_lists) {
+    await loadNameListsFromServer();
+  }
   if (currentUser?.permissions?.can_view_logs) {
     const logs = await api.request('/api/logs');
     if (!logs.error) renderInteractionLogs(logs);
@@ -532,13 +523,30 @@ async function loadClients() {
   const text = clients.map((c) => `${c.name || ''}${c.emoji ? `|${c.emoji}` : ''}`).join('\n');
   const textarea = document.getElementById('clients-text');
   if (textarea) textarea.value = text;
-  loadNameLists(clients);
+  await loadNameListsFromServer();
+}
+
+let savingBulkDefaults = false;
+async function saveBulkDefaults() {
+  if (savingBulkDefaults) return;
+  savingBulkDefaults = true;
+  try {
+    const payload = {
+      bulkDelaySeconds: Number(document.getElementById('bulk-delay')?.value) || 2,
+      bulkRpm: Number(document.getElementById('bulk-rpm')?.value) || 10,
+    };
+    await api.request('/api/settings', { method: 'POST', body: JSON.stringify(payload) });
+  } finally {
+    savingBulkDefaults = false;
+  }
 }
 
 async function loadSettings() {
   const settings = await api.request('/api/settings');
   if (document.getElementById('rpm')) document.getElementById('rpm').value = settings.rpm;
   if (document.getElementById('cooldown')) document.getElementById('cooldown').value = settings.cooldownSeconds;
+  if (document.getElementById('bulk-delay')) document.getElementById('bulk-delay').value = settings.bulkDelaySeconds ?? 2;
+  if (document.getElementById('bulk-rpm')) document.getElementById('bulk-rpm').value = settings.bulkRpm ?? 10;
   if (document.getElementById('normalize')) document.getElementById('normalize').checked = settings.normalizeArabicEnabled;
   if (document.getElementById('replyMode')) document.getElementById('replyMode').checked = settings.replyMode;
   if (document.getElementById('defaultEmoji')) document.getElementById('defaultEmoji').value = settings.defaultEmoji || '';
@@ -581,18 +589,12 @@ function bindDashboard() {
   document.getElementById('save-clients').addEventListener('click', async () => {
     const rawText = document.getElementById('clients-text').value;
     await api.request('/api/clients', { method: 'POST', body: JSON.stringify({ rawText }) });
-    loadNameLists(
-      rawText
-        .split(/\n+/)
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .map((line) => ({ name: line.split('|')[0].trim() }))
-    );
+    await loadNameListsFromServer();
     addLog('Clients saved');
   });
   document.getElementById('clear-clients').addEventListener('click', async () => {
     await api.request('/api/clients/clear', { method: 'POST' });
-    resetNameLists();
+    await api.request('/api/names/reset', { method: 'POST' });
     await loadClients();
     addLog('Clients cleared');
   });
@@ -639,7 +641,7 @@ function bindDashboard() {
     renderBacklog(result);
   });
 
-  document.getElementById('copy-pending').addEventListener('click', () => copyList([...pendingNames]));
+  document.getElementById('copy-pending').addEventListener('click', () => copyList(pendingNames));
   document.getElementById('copy-interacted').addEventListener('click', () => copyList(interactedEntries));
   document.getElementById('copy-skipped').addEventListener('click', () => copyLog('logs'));
   document.getElementById('clear-skipped').addEventListener('click', () => clearLog());
@@ -986,6 +988,9 @@ function analyzeNotifications() {
 }
 
 function bindBulk() {
+  document.getElementById('bulk-delay')?.addEventListener('change', saveBulkDefaults);
+  document.getElementById('bulk-rpm')?.addEventListener('change', saveBulkDefaults);
+
   document.getElementById('bulk-analyze').addEventListener('click', analyzeNotifications);
 
   document.getElementById('bulk-start').addEventListener('click', async () => {
@@ -1006,7 +1011,7 @@ function updateHoursLabel() {
   const hoursRange = document.getElementById('backlog-hours');
   const label = document.getElementById('backlog-hours-value');
   if (hoursRange && label) {
-    label.textContent = `${hoursRange.value}س`;
+    label.textContent = `${hoursRange.value}h`;
   }
 }
 

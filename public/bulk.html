@@ -2,147 +2,159 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#1a1a2e" />
   <title>الإرسال الجماعي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <div class="app-shell">
-    <header class="top-bar">
-      <div class="brand">
-        <span class="brand-icon">📢</span>
-        <div>
-          <h1>إشعارات جماعية</h1>
-          <p class="muted">إنشاء وتحليل الدُفعات</p>
-        </div>
-      </div>
-      <nav class="main-nav">
-        <a class="nav-tab" href="index.html">التحكم</a>
-        <a class="nav-tab active" href="bulk.html">الإرسال الجماعي</a>
-        <a id="admin-link" class="nav-tab" href="admin.html">الإدارة</a>
-      </nav>
-      <div id="header-status-badge" class="header-badge bad">غير متصل</div>
-    </header>
+<body data-page="bulk">
+  <header class="mobile-header">
+    <button class="menu-toggle" id="menuToggle" aria-label="القائمة"><i class="fas fa-bars"></i></button>
+    <span class="mobile-header-title">إرسال جماعي</span>
+    <div id="header-status-badge" class="header-badge bad">غير متصل</div>
+  </header>
 
-    <section class="grid two">
-      <div class="card status-card" data-permission="can_send_messages">
-        <div class="card-header">
-          <h2>الحالة</h2>
-          <button id="link-btn" class="primary ghost">ربط واتساب</button>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-close" id="sidebarClose" aria-label="إغلاق"><i class="fas fa-times"></i></button>
+      <div class="sidebar-brand-icon"><i class="fab fa-whatsapp"></i></div>
+      <div><h2>واتساب بوت</h2><span>لوحة التحكم</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><i class="fas fa-sliders-h"></i> التحكم</a>
+      <a class="active" href="bulk.html"><i class="fas fa-paper-plane"></i> الإرسال الجماعي</a>
+      <a id="admin-link" href="admin.html"><i class="fas fa-users-cog"></i> الإدارة</a>
+    </nav>
+    <div class="sidebar-footer">WhatsApp Bot v1.0</div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-wrap">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">الإرسال الجماعي</h1>
+          <p class="page-sub">إنشاء وتحليل دفعات الإشعارات</p>
         </div>
-        <div class="pill-row">
-          <span id="connected-pill" class="status-pill">غير متصل</span>
-          <span id="link-pill" class="status-pill">غير مرتبط</span>
-          <span id="running-pill" class="status-pill">متوقف</span>
+      </header>
+
+      <div class="panels panels-2">
+        <section class="panel" data-permission="can_send_messages">
+          <div class="panel-head">
+            <span class="panel-icon"><i class="fas fa-signal"></i></span>
+            <h2>الحالة</h2>
+            <button id="link-btn" class="primary ghost">ربط واتساب</button>
+          </div>
+          <div class="panel-body">
+            <div class="status-row">
+              <span id="connected-pill" class="status-pill">غير متصل</span>
+              <span id="link-pill" class="status-pill">غير مرتبط</span>
+              <span id="running-pill" class="status-pill">متوقف</span>
+            </div>
+            <div class="bulk-progress">
+              <div class="progress-text" id="bulk-status">خامل</div>
+              <div class="progress"><div id="bulk-progress" class="progress-fill" style="width:0%"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-permission="can_manage_forwarding">
+          <div class="panel-head">
+            <span class="panel-icon"><i class="fas fa-share"></i></span>
+            <h2>ملخص التوجيه</h2>
+          </div>
+          <div class="panel-body forward-meta">
+            <div>التفعيل: <span id="forward-enabled-label">—</span></div>
+            <div>الهدف: <span id="forward-target-label">—</span></div>
+            <div>الانتظار: <span id="forward-queue">0</span></div>
+            <div>آخر: <span id="forward-last">—</span></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel" data-permission="can_send_messages" style="margin-top:16px">
+        <div class="panel-head">
+          <span class="panel-icon"><i class="fas fa-bell"></i></span>
+          <h2>إنشاء الإشعارات</h2>
+          <button id="bulk-analyze" class="ghost">تحليل</button>
         </div>
-        <div class="bulk-progress">
-          <div class="progress-text" id="bulk-status">خامل</div>
-          <div class="progress">
-            <div id="bulk-progress" class="progress-fill" style="width:0%"></div>
+        <div class="panel-body">
+          <div class="field-row">
+            <div class="field">
+              <label for="bulk-group">المجموعة</label>
+              <select id="bulk-group"></select>
+            </div>
+            <div class="field">
+              <label for="bulk-parse-mode">التقسيم</label>
+              <select id="bulk-parse-mode">
+                <option value="paragraph">فقرات</option>
+                <option value="fixed3">كل 3 أسطر</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="bulk-messages" rows="8" placeholder="اكتب الإشعارات..."></textarea>
+          <div class="field-row" style="margin-top:12px">
+            <div class="field">
+              <label for="bulk-delay">الفاصل (ث)</label>
+              <input class="num-en" type="number" id="bulk-delay" min="1" value="2" lang="en" inputmode="numeric" />
+            </div>
+            <div class="field">
+              <label for="bulk-rpm">RPM</label>
+              <input class="num-en" type="number" id="bulk-rpm" min="1" value="10" lang="en" inputmode="numeric" />
+            </div>
+          </div>
+          <div id="bulk-analysis" class="muted small" style="margin:8px 0"></div>
+          <div class="btn-row">
+            <button id="bulk-start" class="primary">بدء</button>
+            <button id="bulk-pause" class="ghost">إيقاف مؤقت</button>
+            <button id="bulk-resume" class="ghost">استئناف</button>
+            <button id="bulk-stop" class="danger ghost">إيقاف</button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="card" data-permission="can_manage_forwarding">
-        <div class="card-header">
-          <h2>ملخص إعادة التوجيه</h2>
-        </div>
-        <div class="forward-meta">
-          <div>التفعيل: <span id="forward-enabled-label">—</span></div>
-          <div>الهدف: <span id="forward-target-label">—</span></div>
-          <div>قائمة الانتظار: <span id="forward-queue">0</span></div>
-          <div>آخر إعادة توجيه: <span id="forward-last">غير متوفر</span></div>
-        </div>
-      </div>
-    </section>
+      <section class="panel" data-permission="can_scan_backlog" style="margin-top:16px">
+        <div class="panel-head"><h2>نقاط الأرشيف</h2></div>
+        <div class="panel-body"><div id="backlog-checkpoints" class="muted small"></div></div>
+      </section>
+    </div>
+  </main>
 
-    <section class="card" data-permission="can_send_messages">
-      <div class="card-header">
-        <h2>إنشاء الإشعارات</h2>
-        <div class="spacer"></div>
-        <button id="bulk-analyze" class="ghost">تحليل الإشعارات</button>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="bulk-group">المجموعة المستهدفة</label>
-          <select id="bulk-group"></select>
-        </div>
-        <div class="field">
-          <label for="bulk-parse-mode">وضع التقسيم</label>
-          <select id="bulk-parse-mode">
-            <option value="paragraph">فقرات (أسطر فارغة)</option>
-            <option value="fixed3">كل 3 أسطر</option>
-          </select>
-        </div>
-      </div>
-      <textarea id="bulk-messages" rows="10" placeholder="اكتب الإشعارات..."></textarea>
-      <div class="field-grid">
-        <div class="field">
-          <label for="bulk-delay">الفاصل (ثوانٍ)</label>
-          <input type="number" id="bulk-delay" min="1" value="2" />
-        </div>
-        <div class="field">
-          <label for="bulk-rpm">حد الـ RPM</label>
-          <input type="number" id="bulk-rpm" min="1" value="10" />
-        </div>
-      </div>
-      <div id="bulk-analysis" class="muted"></div>
-      <div class="stacked-actions">
-        <button id="bulk-start" class="primary">بدء</button>
-        <div class="inline-buttons">
-          <button id="bulk-pause" class="ghost">إيقاف مؤقت</button>
-          <button id="bulk-resume" class="ghost">استئناف</button>
-          <button id="bulk-stop" class="danger ghost">إيقاف</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card" data-permission="can_scan_backlog">
-      <div class="card-header">
-        <h2>نقاط التحقق من الأرشيف</h2>
-      </div>
-      <div id="backlog-checkpoints" class="muted small"></div>
-    </section>
-  </div>
+  <nav class="mobile-bottom-nav">
+    <a href="index.html"><i class="fas fa-sliders-h"></i> التحكم</a>
+    <a class="active" href="bulk.html"><i class="fas fa-paper-plane"></i> الإرسال</a>
+    <a id="mobile-admin-link" href="admin.html"><i class="fas fa-users-cog"></i> الإدارة</a>
+  </nav>
 
   <div id="link-modal" class="modal hidden">
-    <div class="modal-content link-modal-content">
+    <div class="modal-content">
       <button id="link-close" class="ghost close">✕</button>
       <h3 class="modal-title">ربط واتساب</h3>
-
       <div id="link-step-choose" class="link-step">
         <div class="link-tabs">
-          <button type="button" class="link-tab active" data-tab="qr">مسح QR</button>
-          <button type="button" class="link-tab" data-tab="phone">رقم الهاتف</button>
+          <button type="button" class="link-tab active" data-tab="qr">QR</button>
+          <button type="button" class="link-tab" data-tab="phone">هاتف</button>
         </div>
         <div id="link-tab-qr" class="link-tab-panel">
-          <p class="muted small">امسح الرمز من تطبيق واتساب → الأجهزة المرتبطة → ربط جهاز</p>
-          <button id="link-qr-start" class="primary full-width">توليد رمز QR</button>
+          <button id="link-qr-start" class="primary full-width">توليد QR</button>
         </div>
         <div id="link-tab-phone" class="link-tab-panel hidden">
           <div class="field">
-            <label for="link-phone-input">رقم الهاتف (صيغة دولية)</label>
-            <input type="tel" id="link-phone-input" placeholder="966501234567" dir="ltr" autocomplete="tel" />
+            <label for="link-phone-input">رقم الهاتف</label>
+            <input class="num-en" type="tel" id="link-phone-input" placeholder="966501234567" lang="en" inputmode="tel" />
           </div>
-          <p class="muted small">بدون + أو مسافات — مثال: 966501234567</p>
-          <button id="link-phone-submit" class="primary full-width">إرسال رمز الربط</button>
+          <button id="link-phone-submit" class="primary full-width">إرسال الرمز</button>
         </div>
       </div>
-
       <div id="link-step-result" class="link-step hidden">
-        <div id="link-result-qr" class="link-result hidden">
-          <p class="muted small">امسح الرمز بتطبيق واتساب على هاتفك</p>
-          <img id="link-qr-image" alt="رمز QR" />
-        </div>
+        <div id="link-result-qr" class="link-result hidden"><img id="link-qr-image" alt="QR" /></div>
         <div id="link-result-phone" class="link-result hidden">
-          <p class="muted">أدخل هذا الرمز في واتساب:</p>
-          <div class="link-instructions">
-            الأجهزة المرتبطة → ربط جهاز → <strong>الربط برقم الهاتف بدلاً</strong> → أدخل الرمز
-          </div>
           <div id="pairing-code-display" class="pairing-code">--------</div>
-          <button id="copy-pairing-code" class="ghost full-width">نسخ الرمز</button>
+          <button id="copy-pairing-code" class="ghost full-width">نسخ</button>
         </div>
-        <button id="link-back-btn" class="ghost full-width link-back-btn">← العودة لاختيار الطريقة</button>
+        <button id="link-back-btn" class="ghost full-width link-back-btn">← العودة</button>
       </div>
     </div>
   </div>

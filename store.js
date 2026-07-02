@@ -13,6 +13,8 @@ const defaultFiles = {
     forwardTargetChatId: '',
     forwardBatchSize: 10,
     forwardFlushOnIdle: true,
+    bulkDelaySeconds: 2,
+    bulkRpm: 10,
   },
   'clients.json': [],
   'groups.json': [],
@@ -25,6 +27,7 @@ const defaultFiles = {
   'forwardMeta.json': { lastForwardedAt: null },
   'groupDirectory.json': {},
   'users.json': [],
+  'nameTracking.json': { pending: [], interacted: [], seenIds: [] },
 };
 
 function ensureDataDir() {

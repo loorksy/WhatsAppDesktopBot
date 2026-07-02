@@ -352,6 +352,15 @@ app.get('/api/backlog/last', requirePermission('can_scan_backlog'), (req, res) =
   res.json(bot.lastChecked || {});
 });
 
+app.get('/api/names', requireAnyPermission(['can_view_logs', 'can_manage_lists']), (req, res) => {
+  res.json(bot.getNameTrackingPublic());
+});
+
+app.post('/api/names/reset', requireAny(['is_admin', 'can_manage_lists']), async (req, res) => {
+  await bot.resetNameTracking();
+  res.json({ success: true, ...bot.getNameTrackingPublic() });
+});
+
 app.get('/api/logs', requirePermission('can_view_logs'), (req, res) => {
   res.json(bot.getInteractionLogs());
 });
@@ -446,6 +455,7 @@ io.on('connection', (socket) => {
   const logHandler = (msg) => socket.emit('log', msg);
   const qrHandler = (qr) => socket.emit('qr', qr);
   const pairingCodeHandler = (payload) => socket.emit('pairing-code', payload);
+  const namesHandler = (payload) => socket.emit('names:update', payload);
   const statusHandler = (status) => socket.emit('status', status);
   const bulkHandler = (state) => socket.emit('bulk:update', state);
   const backlogHandler = (payload) => socket.emit('backlog:update', payload);
@@ -454,6 +464,7 @@ io.on('connection', (socket) => {
   bot.on('log', logHandler);
   bot.on('qr', qrHandler);
   bot.on('pairing-code', pairingCodeHandler);
+  bot.on('names:update', namesHandler);
   bot.on('status', statusHandler);
   bot.on('bulk:update', bulkHandler);
   bot.on('backlog:update', backlogHandler);
@@ -471,11 +482,13 @@ io.on('connection', (socket) => {
     forward: bot.getForwardState(),
   });
   socket.emit('interaction:log', bot.getInteractionLogs());
+  socket.emit('names:update', bot.getNameTrackingPublic());
 
   socket.on('disconnect', () => {
     bot.off('log', logHandler);
     bot.off('qr', qrHandler);
     bot.off('pairing-code', pairingCodeHandler);
+    bot.off('names:update', namesHandler);
     bot.off('status', statusHandler);
     bot.off('bulk:update', bulkHandler);
     bot.off('backlog:update', backlogHandler);
