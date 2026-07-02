@@ -191,6 +191,9 @@ app.get('/api/status', (req, res) => {
     connected: bot.connected,
     running: bot.running,
     linkState: bot.linkState,
+    authMode: bot.authMode,
+    pairingCode: bot.lastPairingCode,
+    pairingPhone: bot.pairingPhone ? bot.maskPhone(bot.pairingPhone) : null,
     bulk: bot.getBulkPublicState(),
     lastChecked: bot.lastChecked,
     forward: bot.getForwardState(),
@@ -211,12 +214,40 @@ app.get('/api/qr', (req, res) => {
   res.json({ qr: bot.getLastQr() });
 });
 
-app.post('/api/session/clear', requireAny(['is_admin', 'can_control_bot']), async (req, res) => {
-  const sessionPath = path.join(store.dataDir, 'sessions');
-  if (await fs.pathExists(sessionPath)) {
-    await fs.remove(sessionPath);
+app.get('/api/link/status', requireAny(['is_admin', 'can_control_bot', 'can_send_messages']), (req, res) => {
+  res.json(bot.getPairingState());
+});
+
+app.post('/api/link/qr', requireAny(['is_admin', 'can_control_bot', 'can_send_messages']), async (req, res) => {
+  try {
+    await bot.startQrLink();
+    res.json({ success: true, ...bot.getPairingState() });
+  } catch (err) {
+    if (err.code === 'ALREADY_LINKED') return res.status(409).json({ error: 'ALREADY_LINKED' });
+    res.status(500).json({ error: err.message });
   }
-  res.json({ success: true });
+});
+
+app.post('/api/link/phone', requireAny(['is_admin', 'can_control_bot', 'can_send_messages']), async (req, res) => {
+  const { phoneNumber } = req.body || {};
+  if (!phoneNumber) return res.status(400).json({ error: 'MISSING_PHONE' });
+  try {
+    await bot.startPhoneLink(phoneNumber);
+    res.json({ success: true, ...bot.getPairingState() });
+  } catch (err) {
+    if (err.code === 'ALREADY_LINKED') return res.status(409).json({ error: 'ALREADY_LINKED' });
+    if (err.code === 'INVALID_PHONE') return res.status(400).json({ error: 'INVALID_PHONE' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/session/clear', requireAny(['is_admin', 'can_control_bot']), async (req, res) => {
+  try {
+    await bot.clearSession();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/groups', requireAnyPermission(['can_manage_lists', 'can_send_messages', 'can_manage_forwarding']), async (req, res) => {
@@ -414,6 +445,7 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   const logHandler = (msg) => socket.emit('log', msg);
   const qrHandler = (qr) => socket.emit('qr', qr);
+  const pairingCodeHandler = (payload) => socket.emit('pairing-code', payload);
   const statusHandler = (status) => socket.emit('status', status);
   const bulkHandler = (state) => socket.emit('bulk:update', state);
   const backlogHandler = (payload) => socket.emit('backlog:update', payload);
@@ -421,6 +453,7 @@ io.on('connection', (socket) => {
 
   bot.on('log', logHandler);
   bot.on('qr', qrHandler);
+  bot.on('pairing-code', pairingCodeHandler);
   bot.on('status', statusHandler);
   bot.on('bulk:update', bulkHandler);
   bot.on('backlog:update', backlogHandler);
@@ -430,6 +463,9 @@ io.on('connection', (socket) => {
     connected: bot.connected,
     running: bot.running,
     linkState: bot.linkState,
+    authMode: bot.authMode,
+    pairingCode: bot.lastPairingCode,
+    pairingPhone: bot.pairingPhone ? bot.maskPhone(bot.pairingPhone) : null,
     bulk: bot.getBulkPublicState(),
     lastChecked: bot.lastChecked,
     forward: bot.getForwardState(),
@@ -439,6 +475,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     bot.off('log', logHandler);
     bot.off('qr', qrHandler);
+    bot.off('pairing-code', pairingCodeHandler);
     bot.off('status', statusHandler);
     bot.off('bulk:update', bulkHandler);
     bot.off('backlog:update', backlogHandler);

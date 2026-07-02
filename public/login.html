@@ -8,8 +8,13 @@
 </head>
 <body class="login-page">
   <div class="login-wrapper">
+    <div class="login-brand">
+      <span class="login-brand-icon">💬</span>
+      <h1>واتساب بوت</h1>
+      <p class="muted">لوحة التحكم</p>
+    </div>
     <div class="login-card standalone">
-      <h1>تسجيل الدخول</h1>
+      <h2 style="margin: 0 0 4px; font-size: 20px;">تسجيل الدخول</h2>
       <p class="muted">الرجاء إدخال بيانات حسابك</p>
       <form class="field-grid" action="/login" method="POST">
         <div class="field">
@@ -21,7 +26,7 @@
           <input type="password" id="login-password" name="password" required />
         </div>
         <div id="login-error" class="error-text"></div>
-        <button type="submit" class="primary">دخول</button>
+        <button type="submit" class="primary full-width">دخول</button>
       </form>
     </div>
   </div>

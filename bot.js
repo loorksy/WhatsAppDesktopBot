@@ -1,6 +1,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const EventEmitter = require('events');
+const fs = require('fs-extra');
 const path = require('path');
 const store = require('./store');
 
@@ -28,6 +29,9 @@ class WhatsAppBot extends EventEmitter {
     this.client = null;
     this.initialized = false;
     this.lastQr = null;
+    this.lastPairingCode = null;
+    this.pairingPhone = null;
+    this.authMode = null;
     this.forwardQueue = [];
     this.forwardMeta = { lastForwardedAt: null };
     this.forwardFlushing = false;
@@ -51,6 +55,24 @@ class WhatsAppBot extends EventEmitter {
     this.forwardQueue = await store.read('forwardQueue.json');
     this.forwardMeta = await store.read('forwardMeta.json');
 
+    this.initialized = true;
+    const hasSession = await this.hasStoredSession();
+    if (hasSession) {
+      this.createClient();
+      this.linkState = 'linking';
+      await this.client.initialize();
+      this.emitLog('Bot initialized with stored session.');
+    } else {
+      this.linkState = 'not_linked';
+      this.emitLog('WhatsApp not linked. Choose QR or phone number to connect.');
+    }
+    this.emitStatus();
+    if (this.settings.forwardFlushOnIdle && this.forwardQueue.length) {
+      this.flushForwardBatch(true);
+    }
+  }
+
+  getPuppeteerArgs() {
     const puppeteerArgs = {
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -58,47 +80,145 @@ class WhatsAppBot extends EventEmitter {
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
       puppeteerArgs.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     }
+    return puppeteerArgs;
+  }
 
-    this.client = new Client({
+  async hasStoredSession() {
+    const sessionPath = path.join(store.dataDir, 'sessions');
+    if (!(await fs.pathExists(sessionPath))) return false;
+    const entries = await fs.readdir(sessionPath);
+    return entries.length > 0;
+  }
+
+  createClient({ phoneNumber } = {}) {
+    const options = {
       authStrategy: new LocalAuth({ dataPath: path.join(store.dataDir, 'sessions') }),
-      puppeteer: puppeteerArgs,
-    });
-// ===============================
-// 🔒 WhatsApp Web BUG PATCH
-// Disable sendSeen / markUnread to prevent Bulk crashes
-// ===============================
-this.client.on('ready', async () => {
-  try {
-    const page = this.client.pupPage;
-    if (!page) return;
-
-    await page.evaluate(() => {
-      try {
-        if (window.WWebJS && window.WWebJS.sendSeen) {
-          window.WWebJS.sendSeen = async () => {};
-        }
-
-        if (window.Store && window.Store.Chat && window.Store.Chat._models) {
-          Object.values(window.Store.Chat._models).forEach(chat => {
-            if (chat.sendSeen) chat.sendSeen = async () => {};
-            if (chat.markUnread) chat.markUnread = async () => {};
-            if (chat.markRead) chat.markRead = async () => {};
-          });
-        }
-      } catch (e) {}
-    });
-  } catch (err) {}
-});
-
-    this.registerEvents();
-    this.linkState = 'linking';
-    this.client.initialize();
-    this.initialized = true;
-    this.emitLog('Bot initialized.');
-    this.emitStatus();
-    if (this.settings.forwardFlushOnIdle && this.forwardQueue.length) {
-      this.flushForwardBatch(true);
+      puppeteer: this.getPuppeteerArgs(),
+    };
+    if (phoneNumber) {
+      options.pairWithPhoneNumber = {
+        phoneNumber,
+        showNotification: true,
+        intervalMs: 180000,
+      };
     }
+    this.client = new Client(options);
+    this.applyReadyPatch();
+    this.registerEvents();
+  }
+
+  applyReadyPatch() {
+    this.client.on('ready', async () => {
+      try {
+        const page = this.client.pupPage;
+        if (!page) return;
+        await page.evaluate(() => {
+          try {
+            if (window.WWebJS && window.WWebJS.sendSeen) {
+              window.WWebJS.sendSeen = async () => {};
+            }
+            if (window.Store && window.Store.Chat && window.Store.Chat._models) {
+              Object.values(window.Store.Chat._models).forEach((chat) => {
+                if (chat.sendSeen) chat.sendSeen = async () => {};
+                if (chat.markUnread) chat.markUnread = async () => {};
+                if (chat.markRead) chat.markRead = async () => {};
+              });
+            }
+          } catch (e) {}
+        });
+      } catch (err) {}
+    });
+  }
+
+  async destroyClient() {
+    if (this.client) {
+      try {
+        await this.client.destroy();
+      } catch (err) {
+        this.emitLog(`Client destroy error: ${err.message}`);
+      }
+      this.client.removeAllListeners();
+      this.client = null;
+    }
+    this.connected = false;
+    this.clientReady = false;
+    this.lastQr = null;
+    this.lastPairingCode = null;
+  }
+
+  normalizePhoneNumber(phone) {
+    if (!phone) return null;
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length < 10 || digits.length > 15) return null;
+    return digits;
+  }
+
+  maskPhone(phone) {
+    if (!phone || phone.length < 4) return phone;
+    return `${phone.slice(0, -4).replace(/\d/g, '*')}${phone.slice(-4)}`;
+  }
+
+  async startQrLink() {
+    if (this.linkState === 'ready') {
+      const err = new Error('ALREADY_LINKED');
+      err.code = 'ALREADY_LINKED';
+      throw err;
+    }
+    await this.destroyClient();
+    this.authMode = 'qr';
+    this.pairingPhone = null;
+    this.lastPairingCode = null;
+    this.createClient();
+    this.linkState = 'linking';
+    this.emitStatus();
+    await this.client.initialize();
+    this.emitLog('QR linking started.');
+  }
+
+  async startPhoneLink(phoneNumber) {
+    if (this.linkState === 'ready') {
+      const err = new Error('ALREADY_LINKED');
+      err.code = 'ALREADY_LINKED';
+      throw err;
+    }
+    const normalized = this.normalizePhoneNumber(phoneNumber);
+    if (!normalized) {
+      const err = new Error('INVALID_PHONE');
+      err.code = 'INVALID_PHONE';
+      throw err;
+    }
+    await this.destroyClient();
+    this.authMode = 'phone';
+    this.pairingPhone = normalized;
+    this.lastQr = null;
+    this.createClient({ phoneNumber: normalized });
+    this.linkState = 'linking';
+    this.emitStatus();
+    await this.client.initialize();
+    this.emitLog(`Phone linking started for ${this.maskPhone(normalized)}.`);
+  }
+
+  async clearSession() {
+    await this.destroyClient();
+    const sessionPath = path.join(store.dataDir, 'sessions');
+    if (await fs.pathExists(sessionPath)) {
+      await fs.remove(sessionPath);
+    }
+    this.linkState = 'not_linked';
+    this.authMode = null;
+    this.pairingPhone = null;
+    this.emitStatus();
+    this.emitLog('WhatsApp session cleared.');
+  }
+
+  getPairingState() {
+    return {
+      authMode: this.authMode,
+      qr: this.lastQr,
+      pairingCode: this.lastPairingCode,
+      phone: this.pairingPhone ? this.maskPhone(this.pairingPhone) : null,
+      linkState: this.linkState,
+    };
   }
 
   applySettingsDefaults() {
@@ -143,8 +263,19 @@ this.client.on('ready', async () => {
       this.lastQr = qrImage;
       this.clientReady = false;
       this.linkState = 'qr';
+      this.authMode = 'qr';
       this.emit('qr', qrImage);
       this.emitLog('QR code generated.');
+      this.emitStatus();
+    });
+
+    this.client.on('code', (code) => {
+      this.lastPairingCode = code;
+      this.clientReady = false;
+      this.linkState = 'pairing';
+      this.authMode = 'phone';
+      this.emit('pairing-code', { code, phone: this.pairingPhone ? this.maskPhone(this.pairingPhone) : null });
+      this.emitLog(`Pairing code generated: ${code}`);
       this.emitStatus();
     });
 
@@ -152,6 +283,9 @@ this.client.on('ready', async () => {
       this.connected = true;
       this.clientReady = true;
       this.linkState = 'ready';
+      this.lastQr = null;
+      this.lastPairingCode = null;
+      this.authMode = null;
       this.emitStatus();
       this.emitLog('WhatsApp client ready.');
       this.refreshGroupDirectory();
@@ -215,6 +349,9 @@ this.client.on('ready', async () => {
       connected: this.connected,
       running: this.running,
       linkState: this.linkState,
+      authMode: this.authMode,
+      pairingCode: this.lastPairingCode,
+      pairingPhone: this.pairingPhone ? this.maskPhone(this.pairingPhone) : null,
       bulk: this.getBulkPublicState(),
       lastChecked: this.lastChecked,
       forward: this.getForwardState(),

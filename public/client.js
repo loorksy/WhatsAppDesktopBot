@@ -24,7 +24,7 @@ const isBulk = window.location.pathname.includes('bulk.html');
 const isAdminPage = window.location.pathname.includes('admin');
 const isLoginPage = window.location.pathname.includes('login');
 const MASTER_EMAIL = 'loorksy@gmail.com';
-let statusState = { connected: false, running: false, linkState: 'not_linked', bulk: {}, lastChecked: {}, forward: {} };
+let statusState = { connected: false, running: false, linkState: 'not_linked', authMode: null, pairingCode: null, bulk: {}, lastChecked: {}, forward: {} };
 let savingForward = false;
 let currentUser = null;
 let appInitialized = false;
@@ -165,30 +165,125 @@ function renderStatus(status) {
   statusState = { ...statusState, ...status };
   const linkLabelMap = {
     ready: 'جاهز داخل واتساب',
-    qr: 'غير مرتبط / يحتاج QR',
+    qr: 'في انتظار مسح QR',
+    pairing: 'في انتظار رمز الربط',
     linking: 'جاري الربط',
     disconnected: 'منفصل',
-    not_linked: 'غير مرتبط',
+    not_linked: 'غير مرتبط — اختر طريقة',
   };
   const linkClassMap = {
     ready: 'ok',
     qr: 'warn',
+    pairing: 'warn',
     linking: 'warn',
     disconnected: 'bad',
     not_linked: 'bad',
   };
+  const pulseStates = ['linking', 'pairing', 'qr'];
   setStatusPill('connected-pill', statusState.connected ? 'متصل' : 'غير متصل', statusState.connected ? 'ok' : 'bad');
   setStatusPill('running-pill', statusState.running ? 'يعمل' : 'متوقف', statusState.running ? 'ok' : 'bad');
-  setStatusPill('link-pill', linkLabelMap[statusState.linkState] || 'غير مرتبط', linkClassMap[statusState.linkState] || 'bad');
-  const qrBtn = document.getElementById('qr-btn');
-  if (qrBtn) {
-    const disableQr = statusState.linkState === 'ready';
-    qrBtn.disabled = disableQr;
-    if (disableQr) document.getElementById('qr-modal')?.classList.add('hidden');
+  const linkCls = linkClassMap[statusState.linkState] || 'bad';
+  const linkPill = document.getElementById('link-pill');
+  if (linkPill) {
+    linkPill.textContent = linkLabelMap[statusState.linkState] || 'غير مرتبط';
+    linkPill.className = `status-pill ${linkCls}${pulseStates.includes(statusState.linkState) ? ' pulse' : ''}`;
+  }
+  updateHeaderBadge();
+  const linkBtn = document.getElementById('link-btn');
+  if (linkBtn) {
+    const disableLink = statusState.linkState === 'ready';
+    linkBtn.disabled = disableLink;
+    if (disableLink) closeLinkModal();
+  }
+  if (statusState.pairingCode) {
+    showPairingCode(statusState.pairingCode);
   }
   renderForwardState(statusState.forward || {});
   renderCheckpoints(statusState.lastChecked || {});
   if (statusState.bulk) renderBulkStatus(statusState.bulk);
+}
+
+function updateHeaderBadge() {
+  const badge = document.getElementById('header-status-badge');
+  if (!badge) return;
+  if (statusState.linkState === 'ready' && statusState.connected) {
+    badge.textContent = 'واتساب متصل';
+    badge.className = 'header-badge ok';
+  } else if (['qr', 'pairing', 'linking'].includes(statusState.linkState)) {
+    badge.textContent = linkLabelFromState(statusState.linkState);
+    badge.className = 'header-badge warn pulse';
+  } else {
+    badge.textContent = 'غير متصل';
+    badge.className = 'header-badge bad';
+  }
+}
+
+function linkLabelFromState(state) {
+  const map = {
+    qr: 'انتظار QR',
+    pairing: 'انتظار الرمز',
+    linking: 'جاري الربط',
+  };
+  return map[state] || 'غير متصل';
+}
+
+function openLinkModal() {
+  const modal = document.getElementById('link-modal');
+  if (!modal || statusState.linkState === 'ready') return;
+  showLinkStep('choose');
+  modal.classList.remove('hidden');
+}
+
+function closeLinkModal() {
+  document.getElementById('link-modal')?.classList.add('hidden');
+}
+
+function showLinkStep(step) {
+  const choose = document.getElementById('link-step-choose');
+  const result = document.getElementById('link-step-result');
+  if (choose) choose.classList.toggle('hidden', step !== 'choose');
+  if (result) result.classList.toggle('hidden', step !== 'result');
+}
+
+function showLinkTab(tab) {
+  document.querySelectorAll('.link-tab').forEach((el) => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  document.getElementById('link-tab-qr')?.classList.toggle('hidden', tab !== 'qr');
+  document.getElementById('link-tab-phone')?.classList.toggle('hidden', tab !== 'phone');
+}
+
+function showLinkResult(mode, data) {
+  showLinkStep('result');
+  const qrResult = document.getElementById('link-result-qr');
+  const phoneResult = document.getElementById('link-result-phone');
+  if (mode === 'qr') {
+    qrResult?.classList.remove('hidden');
+    phoneResult?.classList.add('hidden');
+    const img = document.getElementById('link-qr-image');
+    if (img && data) img.src = data;
+  } else {
+    qrResult?.classList.add('hidden');
+    phoneResult?.classList.remove('hidden');
+    if (data) showPairingCode(data);
+  }
+}
+
+function showPairingCode(code) {
+  const el = document.getElementById('pairing-code-display');
+  if (el && code) {
+    el.textContent = code;
+    if (statusState.linkState !== 'ready') {
+      showLinkStep('result');
+      document.getElementById('link-result-qr')?.classList.add('hidden');
+      document.getElementById('link-result-phone')?.classList.remove('hidden');
+      openLinkModalQuiet();
+    }
+  }
+}
+
+function openLinkModalQuiet() {
+  document.getElementById('link-modal')?.classList.remove('hidden');
 }
 
 function showLoginOverlay(message) {
@@ -277,10 +372,18 @@ function initSocket() {
   socket.on('status', renderStatus);
   socket.on('log', (msg) => addLog(msg));
   socket.on('qr', (qr) => {
-    const modal = document.getElementById('qr-modal');
-    const img = document.getElementById('qr-image');
-    if (img) img.src = qr;
-    if (modal && statusState.linkState !== 'ready') modal.classList.remove('hidden');
+    if (statusState.linkState === 'ready') return;
+    showLinkResult('qr', qr);
+    openLinkModalQuiet();
+  });
+  socket.on('pairing-code', (payload) => {
+    if (statusState.linkState === 'ready') return;
+    if (payload?.code) {
+      statusState.pairingCode = payload.code;
+      showLinkResult('phone', payload.code);
+      openLinkModalQuiet();
+      showToast('تم توليد رمز الربط');
+    }
   });
   socket.on('bulk:update', renderBulkStatus);
   socket.on('backlog:update', renderBacklog);
@@ -292,8 +395,66 @@ function initSocket() {
   });
 }
 
+function bindLinkModal() {
+  document.getElementById('link-close')?.addEventListener('click', closeLinkModal);
+  document.getElementById('link-back-btn')?.addEventListener('click', () => showLinkStep('choose'));
+
+  document.querySelectorAll('.link-tab').forEach((tab) => {
+    tab.addEventListener('click', () => showLinkTab(tab.dataset.tab));
+  });
+
+  document.getElementById('link-btn')?.addEventListener('click', () => {
+    if (statusState.linkState === 'ready') return;
+    openLinkModal();
+  });
+
+  document.getElementById('link-qr-start')?.addEventListener('click', async () => {
+    const res = await api.request('/api/link/qr', { method: 'POST' });
+    if (handleApiError(res, 'start QR link')) return;
+    if (res.qr) {
+      showLinkResult('qr', res.qr);
+    } else {
+      showToast('جاري توليد رمز QR...');
+    }
+  });
+
+  document.getElementById('link-phone-submit')?.addEventListener('click', async () => {
+    const phone = document.getElementById('link-phone-input')?.value?.trim();
+    if (!phone) {
+      showToast('الرجاء إدخال رقم الهاتف');
+      return;
+    }
+    const res = await api.request('/api/link/phone', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber: phone }),
+    });
+    if (res.error === 'INVALID_PHONE') {
+      showToast('رقم الهاتف غير صالح — استخدم صيغة دولية بدون +');
+      return;
+    }
+    if (handleApiError(res, 'start phone link')) return;
+    showToast('جاري توليد رمز الربط...');
+    if (res.pairingCode) {
+      showLinkResult('phone', res.pairingCode);
+    }
+  });
+
+  document.getElementById('copy-pairing-code')?.addEventListener('click', () => {
+    const code = document.getElementById('pairing-code-display')?.textContent?.trim();
+    if (!code || code === '--------') return;
+    navigator.clipboard
+      .writeText(code)
+      .then(() => showToast('تم نسخ الرمز'))
+      .catch(() => showToast('تعذر النسخ'));
+  });
+
+  document.getElementById('link-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'link-modal') closeLinkModal();
+  });
+}
+
 function bindCommon() {
-  document.getElementById('qr-close')?.addEventListener('click', () => document.getElementById('qr-modal').classList.add('hidden'));
+  bindLinkModal();
 }
 
 function bindLoginPage() {
@@ -416,22 +577,6 @@ async function initDashboard() {
 function bindDashboard() {
   document.getElementById('start-btn').addEventListener('click', () => api.request('/api/start', { method: 'POST' }));
   document.getElementById('stop-btn').addEventListener('click', () => api.request('/api/stop', { method: 'POST' }));
-
-  const qrBtn = document.getElementById('qr-btn');
-  if (qrBtn) {
-    qrBtn.addEventListener('click', async () => {
-      if (statusState.linkState === 'ready') return;
-      const res = await api.request('/api/qr');
-      if (res.qr) {
-        const modal = document.getElementById('qr-modal');
-        const img = document.getElementById('qr-image');
-        if (img) img.src = res.qr;
-        if (modal) modal.classList.remove('hidden');
-      } else {
-        addLog('No QR available yet');
-      }
-    });
-  }
 
   document.getElementById('save-clients').addEventListener('click', async () => {
     const rawText = document.getElementById('clients-text').value;
@@ -841,20 +986,6 @@ function analyzeNotifications() {
 }
 
 function bindBulk() {
-  const qrBtn = document.getElementById('qr-btn');
-  if (qrBtn) {
-    qrBtn.addEventListener('click', async () => {
-      if (statusState.linkState === 'ready') return;
-      const res = await api.request('/api/qr');
-      if (res.qr) {
-        const modal = document.getElementById('qr-modal');
-        const img = document.getElementById('qr-image');
-        if (img) img.src = res.qr;
-        if (modal) modal.classList.remove('hidden');
-      }
-    });
-  }
-
   document.getElementById('bulk-analyze').addEventListener('click', analyzeNotifications);
 
   document.getElementById('bulk-start').addEventListener('click', async () => {

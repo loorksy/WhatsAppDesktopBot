@@ -8,22 +8,27 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="app-header">
-      <div>
-        <h1>إشعارات جماعية</h1>
-        <p class="muted">إنشاء وتحليل الدُفعات</p>
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-icon">📢</span>
+        <div>
+          <h1>إشعارات جماعية</h1>
+          <p class="muted">إنشاء وتحليل الدُفعات</p>
+        </div>
       </div>
-      <nav class="header-actions">
-        <a class="pill" href="index.html">اللوحة الرئيسية</a>
-        <a id="admin-link" class="pill" href="admin.html">لوحة الإدارة</a>
+      <nav class="main-nav">
+        <a class="nav-tab" href="index.html">التحكم</a>
+        <a class="nav-tab active" href="bulk.html">الإرسال الجماعي</a>
+        <a id="admin-link" class="nav-tab" href="admin.html">الإدارة</a>
       </nav>
+      <div id="header-status-badge" class="header-badge bad">غير متصل</div>
     </header>
 
     <section class="grid two">
       <div class="card status-card" data-permission="can_send_messages">
         <div class="card-header">
           <h2>الحالة</h2>
-          <button id="qr-btn" class="ghost">إظهار رمز QR</button>
+          <button id="link-btn" class="primary ghost">ربط واتساب</button>
         </div>
         <div class="pill-row">
           <span id="connected-pill" class="status-pill">غير متصل</span>
@@ -100,10 +105,45 @@
     </section>
   </div>
 
-  <div id="qr-modal" class="modal hidden">
-    <div class="modal-content">
-      <button id="qr-close" class="ghost close">✕</button>
-      <img id="qr-image" alt="رمز الاستجابة السريعة" />
+  <div id="link-modal" class="modal hidden">
+    <div class="modal-content link-modal-content">
+      <button id="link-close" class="ghost close">✕</button>
+      <h3 class="modal-title">ربط واتساب</h3>
+
+      <div id="link-step-choose" class="link-step">
+        <div class="link-tabs">
+          <button type="button" class="link-tab active" data-tab="qr">مسح QR</button>
+          <button type="button" class="link-tab" data-tab="phone">رقم الهاتف</button>
+        </div>
+        <div id="link-tab-qr" class="link-tab-panel">
+          <p class="muted small">امسح الرمز من تطبيق واتساب → الأجهزة المرتبطة → ربط جهاز</p>
+          <button id="link-qr-start" class="primary full-width">توليد رمز QR</button>
+        </div>
+        <div id="link-tab-phone" class="link-tab-panel hidden">
+          <div class="field">
+            <label for="link-phone-input">رقم الهاتف (صيغة دولية)</label>
+            <input type="tel" id="link-phone-input" placeholder="966501234567" dir="ltr" autocomplete="tel" />
+          </div>
+          <p class="muted small">بدون + أو مسافات — مثال: 966501234567</p>
+          <button id="link-phone-submit" class="primary full-width">إرسال رمز الربط</button>
+        </div>
+      </div>
+
+      <div id="link-step-result" class="link-step hidden">
+        <div id="link-result-qr" class="link-result hidden">
+          <p class="muted small">امسح الرمز بتطبيق واتساب على هاتفك</p>
+          <img id="link-qr-image" alt="رمز QR" />
+        </div>
+        <div id="link-result-phone" class="link-result hidden">
+          <p class="muted">أدخل هذا الرمز في واتساب:</p>
+          <div class="link-instructions">
+            الأجهزة المرتبطة → ربط جهاز → <strong>الربط برقم الهاتف بدلاً</strong> → أدخل الرمز
+          </div>
+          <div id="pairing-code-display" class="pairing-code">--------</div>
+          <button id="copy-pairing-code" class="ghost full-width">نسخ الرمز</button>
+        </div>
+        <button id="link-back-btn" class="ghost full-width link-back-btn">← العودة لاختيار الطريقة</button>
+      </div>
     </div>
   </div>
 
