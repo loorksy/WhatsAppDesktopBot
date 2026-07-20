@@ -63,5 +63,8 @@ fun StatusScreen(viewModel: BotViewModel) {
         OutlinedButton(onClick = viewModel::reconnect, modifier = Modifier.fillMaxWidth()) {
             Text("إعادة الاتصال")
         }
+        OutlinedButton(onClick = viewModel::simulateTestMessage, modifier = Modifier.fillMaxWidth()) {
+            Text("محاكاة رسالة (اختبار)")
+        }
     }
 }

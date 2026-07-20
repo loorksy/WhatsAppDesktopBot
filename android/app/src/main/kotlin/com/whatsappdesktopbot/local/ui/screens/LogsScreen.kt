@@ -28,6 +28,7 @@ import java.util.Locale
 fun LogsScreen(viewModel: BotViewModel) {
     val interaction by viewModel.interactionLogs.collectAsStateWithLifecycle()
     val skipped by viewModel.skippedLogs.collectAsStateWithLifecycle()
+    val connection by viewModel.connectionEvents.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("تم التفاعل", "تم التجاهل", "الاتصال", "الأخطاء")
     val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
@@ -41,8 +42,8 @@ fun LogsScreen(viewModel: BotViewModel) {
         when (tab) {
             0 -> LogList(interaction.map { "${fmt.format(Date(it.timestamp))} • ${it.match} • ${it.snippet}" })
             1 -> LogList(skipped.map { "${fmt.format(Date(it.timestamp))} • ${it.reason} • ${it.snippet}" })
-            2 -> LogList(listOf("NOT_LINKED — App initialized (demo seed)"))
-            else -> LogList(listOf("لا أخطاء في النسخة التجريبية"))
+            2 -> LogList(connection.map { "${fmt.format(Date(it.timestamp))} • ${it.state.name} • ${it.detail}" })
+            else -> LogList(listOf("لا أخطاء مسجلة"))
         }
     }
 }

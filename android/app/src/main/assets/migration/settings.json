@@ -1,0 +1,12 @@
+{
+  "rpm": 20,
+  "cooldownSeconds": 3,
+  "normalizeArabicEnabled": true,
+  "replyMode": false,
+  "defaultEmoji": "✅",
+  "forwardEnabled": true,
+  "forwardTargetChatId": "120363422603667240@g.us",
+  "forwardBatchSize": 10,
+  "forwardFlushOnIdle": true,
+  "bulkMessagesPerMinute": 10
+}

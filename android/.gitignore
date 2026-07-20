@@ -3,7 +3,7 @@
 /local.properties
 /.idea/
 .DS_Store
-/build/
+**/build/
 /captures
 .externalNativeBuild/
 .cxx/
@@ -12,3 +12,4 @@
 *.aab
 gradle-8.7/
 gradle-tmp.zip
+*.class

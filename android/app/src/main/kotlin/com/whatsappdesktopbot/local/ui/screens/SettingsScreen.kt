@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -58,7 +59,10 @@ fun SettingsScreen(viewModel: BotViewModel) {
             modifier = Modifier.fillMaxWidth(),
         )
         Text("تعطيل تحسين البطارية — المرحلة 4", style = MaterialTheme.typography.bodySmall)
-        Text("WhatsApp Bot v1.0.0-phase1 (Fake Engine)", style = MaterialTheme.typography.labelMedium)
+        Text("WhatsApp Bot v1.0.0-phase2", style = MaterialTheme.typography.labelMedium)
+        OutlinedButton(onClick = viewModel::importBundledDesktopJson, modifier = Modifier.fillMaxWidth()) {
+            Text("استيراد JSON من Desktop (عينة)")
+        }
     }
 }
 

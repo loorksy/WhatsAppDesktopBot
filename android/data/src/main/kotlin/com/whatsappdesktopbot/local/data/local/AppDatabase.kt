@@ -5,7 +5,11 @@ import androidx.room.RoomDatabase
 import com.whatsappdesktopbot.local.data.local.dao.BotSettingsDao
 import com.whatsappdesktopbot.local.data.local.dao.ClientDao
 import com.whatsappdesktopbot.local.data.local.dao.ConnectionEventDao
+import com.whatsappdesktopbot.local.data.local.dao.ForwardQueueDao
+import com.whatsappdesktopbot.local.data.local.dao.GroupDirectoryDao
 import com.whatsappdesktopbot.local.data.local.dao.InteractionLogDao
+import com.whatsappdesktopbot.local.data.local.dao.ProcessedMessageDao
+import com.whatsappdesktopbot.local.data.local.dao.SelectedGroupDao
 import com.whatsappdesktopbot.local.data.local.dao.SkippedLogDao
 import com.whatsappdesktopbot.local.data.local.entity.BotSettingsEntity
 import com.whatsappdesktopbot.local.data.local.entity.BulkJobEntity
@@ -33,13 +37,17 @@ import com.whatsappdesktopbot.local.data.local.entity.SkippedLogEntity
         BulkMessageEntity::class,
         ConnectionEventEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun clientDao(): ClientDao
     abstract fun botSettingsDao(): BotSettingsDao
+    abstract fun selectedGroupDao(): SelectedGroupDao
+    abstract fun groupDirectoryDao(): GroupDirectoryDao
+    abstract fun processedMessageDao(): ProcessedMessageDao
     abstract fun interactionLogDao(): InteractionLogDao
     abstract fun skippedLogDao(): SkippedLogDao
+    abstract fun forwardQueueDao(): ForwardQueueDao
     abstract fun connectionEventDao(): ConnectionEventDao
 }

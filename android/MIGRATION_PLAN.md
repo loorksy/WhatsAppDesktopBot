@@ -211,7 +211,7 @@ Phase 1: schema + DAOs + sample seed data. Full cleanup jobs in Phase 2.
 
 ## 8. Implementation Phases
 
-### Phase 1 ✅ (this commit)
+### Phase 1 ✅ (commit f01cf85)
 
 - [x] `MIGRATION_PLAN.md`
 - [x] Multi-module Gradle project under `android/`
@@ -219,14 +219,17 @@ Phase 1: schema + DAOs + sample seed data. Full cleanup jobs in Phase 2.
 - [x] Domain logic + unit tests
 - [x] `FakeWhatsAppEngine`
 - [x] 8 Compose screens
-- [x] `./gradlew test` + `./gradlew assembleDebug`
+- [ ] `./gradlew test` + `./gradlew assembleDebug` (blocked: no JDK on dev machine)
 
-### Phase 2 — Business logic port
+### Phase 2 ✅ (this commit)
 
-- Port full `processMessage` pipeline to Kotlin
-- Wire Room repositories
-- Import JSON migration from desktop `data/`
-- Unit tests: queue, bulk state, forward batch
+- [x] Port `processMessage` pipeline → `BotOrchestrator`
+- [x] `MessageFilter`, `MessageTextExtractor`, `ForwardQueueProcessor`, `CooldownTracker`
+- [x] `BotProcessingStore` + `RoomBotProcessingStore` + retention trims
+- [x] `DesktopJsonImporter` + bundled sample assets + import UI
+- [x] Wire Fake Engine to real business logic + simulate message
+- [x] Unit tests: orchestrator, forward batch, message filter, JSON import
+- [ ] Device APK build verification (requires JDK 17)
 
 ### Phase 3 — Real WhatsApp engine
 

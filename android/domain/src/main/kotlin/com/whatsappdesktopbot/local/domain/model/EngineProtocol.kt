@@ -17,6 +17,11 @@ sealed interface EngineCommand {
     data object PauseBulk : EngineCommand
     data object ResumeBulk : EngineCommand
     data object StopBulk : EngineCommand
+    data class SimulateIncomingMessage(
+        val chatId: String,
+        val groupName: String,
+        val text: String,
+    ) : EngineCommand
 }
 
 sealed interface EngineEvent {
