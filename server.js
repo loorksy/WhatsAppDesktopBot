@@ -280,12 +280,12 @@ app.post('/api/clients/clear', requirePermission('can_manage_lists'), async (req
   res.json({ success: true });
 });
 
-app.get('/api/settings', requireAnyPermission(['can_manage_settings', 'can_manage_lists', 'can_manage_forwarding']), async (req, res) => {
+app.get('/api/settings', requireAnyPermission(['can_manage_settings', 'can_manage_lists', 'can_manage_forwarding', 'can_send_messages']), async (req, res) => {
   const settings = await store.read('settings.json');
   res.json(settings);
 });
 
-app.post('/api/settings', requireAny(['is_admin', 'can_manage_settings', 'can_manage_lists', 'can_manage_forwarding']), async (req, res) => {
+app.post('/api/settings', requireAny(['is_admin', 'can_manage_settings', 'can_manage_lists', 'can_manage_forwarding', 'can_send_messages']), async (req, res) => {
   try {
     await bot.setSettings(req.body);
     res.json({ success: true });

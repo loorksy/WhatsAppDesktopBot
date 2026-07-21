@@ -12,5 +12,19 @@
       "can_view_logs": true,
       "is_admin": true
     }
+  },
+  {
+    "email": "rawan@gmail.com",
+    "password": "0f6682ad92308ff7a490637e0fa3921441bf1cc3977147b54f6b73d97b4e7ef0",
+    "permissions": {
+      "can_scan_backlog": false,
+      "can_send_messages": true,
+      "can_manage_lists": false,
+      "can_manage_settings": false,
+      "can_control_bot": false,
+      "can_manage_forwarding": false,
+      "can_view_logs": false,
+      "is_admin": false
+    }
   }
 ]

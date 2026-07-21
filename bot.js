@@ -1,3 +1,4 @@
+require('./patch-wwebjs-puppeteer');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const EventEmitter = require('events');
@@ -24,7 +25,7 @@ class WhatsAppBot extends EventEmitter {
     this.skippedLogs = [];
     this.rateWindow = [];
     this.lastActionByGroup = {};
-    this.bulkState = { state: 'idle', sent: 0, total: 0, groupId: null, paused: false, messages: [], delaySeconds: 1, rpm: 10 };
+    this.bulkState = { state: 'idle', sent: 0, total: 0, groupId: null, paused: false, messages: [], delaySeconds: 6, rpm: 10 };
     this.bulkTimer = null;
     this.client = null;
     this.initialized = false;
@@ -246,9 +247,34 @@ class WhatsAppBot extends EventEmitter {
       forwardTargetChatId: '',
       forwardBatchSize: 10,
       forwardFlushOnIdle: true,
-      bulkDelaySeconds: 2,
+      bulkDelaySeconds: 6,
       bulkRpm: 10,
+      bulkMessagesPerMinute: 10,
       ...this.settings,
+    };
+    this.settings = this.applySafetyLimits(this.settings);
+  }
+
+  clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  applySafetyLimits(settings = {}) {
+    const rpm = this.clampNumber(settings.rpm, 1, 20, 20);
+    const cooldownSeconds = this.clampNumber(settings.cooldownSeconds, 3, 3600, 3);
+    const bulkRpm = this.clampNumber(settings.bulkMessagesPerMinute ?? settings.bulkRpm, 1, 10, 10);
+    const requestedBulkDelay = this.clampNumber(settings.bulkDelaySeconds, 6, 3600, 6);
+    const bulkDelaySeconds = Math.max(requestedBulkDelay, 60 / bulkRpm);
+
+    return {
+      ...settings,
+      rpm,
+      cooldownSeconds,
+      bulkDelaySeconds,
+      bulkRpm,
+      bulkMessagesPerMinute: bulkRpm,
     };
   }
 
@@ -338,7 +364,13 @@ class WhatsAppBot extends EventEmitter {
 
   async refreshGroupDirectory() {
     if (!this.clientReady || !this.client) return this.groupDirectory;
-    const chats = await this.client.getChats();
+    let chats;
+    try {
+      chats = await this.client.getChats();
+    } catch (err) {
+      this.emitLog(`Group directory refresh failed: ${err.message}`);
+      return this.groupDirectory;
+    }
     const groups = chats.filter((c) => c.isGroup);
     const updated = { ...this.groupDirectory };
     for (const g of groups) {
@@ -737,7 +769,8 @@ class WhatsAppBot extends EventEmitter {
 
   async ensureRateLimit(rpmOverride) {
     const now = Date.now();
-    const rpmLimit = rpmOverride || this.settings.rpm || 20;
+    const requestedRpm = rpmOverride || this.settings.rpm || 20;
+    const rpmLimit = this.clampNumber(requestedRpm, 1, rpmOverride ? 10 : 20, rpmOverride ? 10 : 20);
     this.rateWindow = this.rateWindow.filter((t) => now - t < 60000);
     while (this.rateWindow.length >= rpmLimit) {
       await new Promise((res) => setTimeout(res, 1000));
@@ -749,7 +782,7 @@ class WhatsAppBot extends EventEmitter {
 
   async respectCooldown(groupId) {
     const last = this.lastActionByGroup[groupId] || 0;
-    const cooldown = (this.settings.cooldownSeconds || 3) * 1000;
+    const cooldown = this.clampNumber(this.settings.cooldownSeconds, 3, 3600, 3) * 1000;
     const delta = Date.now() - last;
     if (delta < cooldown) {
       await new Promise((res) => setTimeout(res, cooldown - delta));
@@ -928,7 +961,19 @@ class WhatsAppBot extends EventEmitter {
     if (!groupId || !Array.isArray(messages) || messages.length === 0) {
       throw new Error('Invalid bulk payload');
     }
-    this.bulkState = { state: 'running', sent: 0, total: messages.length, groupId, paused: false, messages, delaySeconds, rpm };
+    const safeRpm = this.clampNumber(rpm, 1, 10, this.settings?.bulkRpm || 10);
+    const requestedDelay = this.clampNumber(delaySeconds, 6, 3600, this.settings?.bulkDelaySeconds || 6);
+    const safeDelaySeconds = Math.max(requestedDelay, 60 / safeRpm);
+    this.bulkState = {
+      state: 'running',
+      sent: 0,
+      total: messages.length,
+      groupId,
+      paused: false,
+      messages,
+      delaySeconds: safeDelaySeconds,
+      rpm: safeRpm,
+    };
     await store.write('bulkState.json', this.bulkState);
     this.emit('bulk:update', this.getBulkPublicState());
     this.runBulkLoop();
@@ -989,7 +1034,9 @@ class WhatsAppBot extends EventEmitter {
         this.emitLog(`Bulk error: ${err.message}`);
       }
 
-      this.bulkTimer = setTimeout(loop, (this.bulkState.delaySeconds || 1) * 1000);
+      const safeRpm = this.clampNumber(this.bulkState.rpm, 1, 10, 10);
+      const safeDelaySeconds = Math.max(this.clampNumber(this.bulkState.delaySeconds, 6, 3600, 6), 60 / safeRpm);
+      this.bulkTimer = setTimeout(loop, safeDelaySeconds * 1000);
     };
 
     loop();

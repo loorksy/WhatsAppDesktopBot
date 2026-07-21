@@ -1,5 +1,6 @@
 node_modules/
 sessions/
+data/sessions/
 .wwebjs_cache/
 *.zip
 npm-debug.log

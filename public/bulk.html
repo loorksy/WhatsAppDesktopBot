@@ -31,93 +31,85 @@
     <div class="sidebar-footer">WhatsApp Bot v1.0</div>
   </aside>
 
+  <!-- عناصر مخفية للحفاظ على الوظائف (status, forward, link) -->
+  <div class="sr-only" aria-hidden="true">
+    <span id="connected-pill"></span>
+    <span id="link-pill"></span>
+    <span id="running-pill"></span>
+    <span id="forward-enabled-label"></span>
+    <span id="forward-target-label"></span>
+    <span id="forward-queue">0</span>
+    <span id="forward-last"></span>
+    <span id="bulk-status">idle</span>
+    <div id="bulk-progress" class="progress-fill"></div>
+    <button id="link-btn"></button>
+    <div id="backlog-checkpoints"></div>
+  </div>
+
   <main class="main-content">
-    <div class="page-wrap">
-      <header class="page-header">
-        <div>
-          <h1 class="page-title">الإرسال الجماعي</h1>
-          <p class="page-sub">إنشاء وتحليل دفعات الإشعارات</p>
-        </div>
-      </header>
-
-      <div class="panels panels-2">
-        <section class="panel" data-permission="can_send_messages">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-signal"></i></span>
-            <h2>الحالة</h2>
-            <button id="link-btn" class="primary ghost">ربط واتساب</button>
-          </div>
-          <div class="panel-body">
-            <div class="status-row">
-              <span id="connected-pill" class="status-pill">غير متصل</span>
-              <span id="link-pill" class="status-pill">غير مرتبط</span>
-              <span id="running-pill" class="status-pill">متوقف</span>
-            </div>
-            <div class="bulk-progress">
-              <div class="progress-text" id="bulk-status">خامل</div>
-              <div class="progress"><div id="bulk-progress" class="progress-fill" style="width:0%"></div></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" data-permission="can_manage_forwarding">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-share"></i></span>
-            <h2>ملخص التوجيه</h2>
-          </div>
-          <div class="panel-body forward-meta">
-            <div>التفعيل: <span id="forward-enabled-label">—</span></div>
-            <div>الهدف: <span id="forward-target-label">—</span></div>
-            <div>الانتظار: <span id="forward-queue">0</span></div>
-            <div>آخر: <span id="forward-last">—</span></div>
-          </div>
-        </section>
-      </div>
-
-      <section class="panel" data-permission="can_send_messages" style="margin-top:16px">
-        <div class="panel-head">
+    <div class="page-wrap bulk-page-wrap">
+      <section class="panel bulk-create-panel" data-permission="can_send_messages">
+        <div class="panel-head bulk-panel-head">
           <span class="panel-icon"><i class="fas fa-bell"></i></span>
-          <h2>إنشاء الإشعارات</h2>
-          <button id="bulk-analyze" class="ghost">تحليل</button>
+          <div class="bulk-head-text">
+            <h2>إنشاء الإشعارات</h2>
+            <p class="muted small">اكتب الرسائل وحدّد الإعدادات ثم ابدأ الإرسال</p>
+          </div>
         </div>
-        <div class="panel-body">
-          <div class="field-row">
-            <div class="field">
-              <label for="bulk-group">المجموعة</label>
+
+        <div class="panel-body bulk-form">
+          <div class="bulk-toolbar">
+            <div class="field bulk-field-grow">
+              <label for="bulk-group"><i class="fas fa-users"></i> المجموعة</label>
               <select id="bulk-group"></select>
             </div>
             <div class="field">
-              <label for="bulk-parse-mode">التقسيم</label>
+              <label for="bulk-parse-mode"><i class="fas fa-cut"></i> التقسيم</label>
               <select id="bulk-parse-mode">
                 <option value="paragraph">فقرات</option>
                 <option value="fixed3">كل 3 أسطر</option>
               </select>
             </div>
           </div>
-          <textarea id="bulk-messages" rows="8" placeholder="اكتب الإشعارات..."></textarea>
-          <div class="field-row" style="margin-top:12px">
-            <div class="field">
-              <label for="bulk-delay">الفاصل (ث)</label>
-              <input class="num-en" type="number" id="bulk-delay" min="1" value="2" lang="en" inputmode="numeric" />
-            </div>
-            <div class="field">
-              <label for="bulk-rpm">RPM</label>
-              <input class="num-en" type="number" id="bulk-rpm" min="1" value="10" lang="en" inputmode="numeric" />
+
+          <div class="field">
+            <label for="bulk-messages"><i class="fas fa-align-right"></i> نص الإشعارات</label>
+            <textarea id="bulk-messages" rows="10" placeholder="اكتب الإشعارات... (فصل الفقرات بسطر فارغ)"></textarea>
+          </div>
+
+          <div id="bulk-analysis" class="bulk-analysis hidden">
+            <span class="bulk-analysis-icon"><i class="fas fa-layer-group"></i></span>
+            <div>
+              <div class="bulk-analysis-label">عدد الإشعارات</div>
+              <div id="bulk-analysis-count" class="bulk-analysis-count num-en">0</div>
             </div>
           </div>
-          <div id="bulk-analysis" class="muted small" style="margin:8px 0"></div>
-          <div class="btn-row">
-            <button id="bulk-start" class="primary">بدء</button>
-            <button id="bulk-pause" class="ghost">إيقاف مؤقت</button>
-            <button id="bulk-resume" class="ghost">استئناف</button>
-            <button id="bulk-stop" class="danger ghost">إيقاف</button>
+
+          <div class="bulk-speed">
+            <div class="bulk-slider-header">
+              <label for="bulk-mpm-slider"><i class="fas fa-tachometer-alt"></i> سرعة الإرسال (رسالة/دقيقة)</label>
+              <output id="bulk-mpm-display" class="slider-value num-en" for="bulk-mpm-slider">10</output>
+            </div>
+            <input type="range" id="bulk-mpm-slider" class="bulk-range" min="1" max="10000" step="1" value="10" />
+            <input type="hidden" id="bulk-mpm" value="10" />
+            <p id="bulk-mpm-estimate" class="bulk-mpm-estimate num-en">10 رسالة ≈ ~0.2 رسالة/ث</p>
+            <div class="bulk-mpm-presets" role="group" aria-label="قيم سريعة">
+              <button type="button" class="bulk-mpm-preset" data-mpm="10">10</button>
+              <button type="button" class="bulk-mpm-preset" data-mpm="60">60</button>
+              <button type="button" class="bulk-mpm-preset" data-mpm="300">300</button>
+              <button type="button" class="bulk-mpm-preset" data-mpm="1000">1000</button>
+              <button type="button" class="bulk-mpm-preset" data-mpm="5000">5000</button>
+            </div>
+          </div>
+
+          <div class="bulk-actions">
+            <button id="bulk-analyze" class="ghost bulk-action-btn"><i class="fas fa-search"></i> تحليل</button>
+            <button id="bulk-start" class="primary bulk-action-btn bulk-action-main"><i class="fas fa-play"></i> بدء الإرسال</button>
+            <button id="bulk-pause" class="ghost bulk-action-btn"><i class="fas fa-pause"></i> إيقاف مؤقت</button>
+            <button id="bulk-resume" class="ghost bulk-action-btn"><i class="fas fa-play-circle"></i> استئناف</button>
+            <button id="bulk-stop" class="danger ghost bulk-action-btn"><i class="fas fa-stop"></i> إيقاف</button>
           </div>
         </div>
-      </section>
-
-      <section class="panel" data-permission="can_scan_backlog" style="margin-top:16px">
-        <div class="panel-head"><h2>نقاط الأرشيف</h2></div>
-        <div class="panel-body"><div id="backlog-checkpoints" class="muted small"></div></div>
       </section>
     </div>
   </main>
@@ -127,6 +119,30 @@
     <a class="active" href="bulk.html"><i class="fas fa-paper-plane"></i> الإرسال</a>
     <a id="mobile-admin-link" href="admin.html"><i class="fas fa-users-cog"></i> الإدارة</a>
   </nav>
+
+  <!-- نموذج تقدم الإرسال -->
+  <div id="bulk-progress-modal" class="modal hidden" aria-live="polite">
+    <div class="modal-content bulk-progress-modal">
+      <div class="bulk-modal-head">
+        <span class="panel-icon"><i class="fas fa-paper-plane"></i></span>
+        <div>
+          <h3 class="modal-title-inline">جاري الإرسال</h3>
+          <p id="bulk-modal-status" class="muted small">running</p>
+        </div>
+      </div>
+      <div class="bulk-modal-progress">
+        <div class="progress bulk-modal-bar">
+          <div id="bulk-modal-progress-fill" class="progress-fill" style="width:0%"></div>
+        </div>
+        <div id="bulk-modal-detail" class="bulk-modal-detail num-en">0 / 0</div>
+      </div>
+      <div class="bulk-modal-actions btn-row">
+        <button id="bulk-modal-pause" class="ghost"><i class="fas fa-pause"></i> إيقاف مؤقت</button>
+        <button id="bulk-modal-resume" class="ghost"><i class="fas fa-play"></i> استئناف</button>
+        <button id="bulk-modal-stop" class="danger"><i class="fas fa-stop"></i> إيقاف</button>
+      </div>
+    </div>
+  </div>
 
   <div id="link-modal" class="modal hidden">
     <div class="modal-content">

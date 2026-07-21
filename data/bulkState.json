@@ -2,9 +2,9 @@
   "state": "idle",
   "sent": 0,
   "total": 0,
-  "groupId": "120363425998967408@g.us",
+  "groupId": "120363428994749926@g.us",
   "paused": false,
   "messages": [],
-  "delaySeconds": 0.00001,
-  "rpm": 99999
+  "delaySeconds": 6,
+  "rpm": 10
 }

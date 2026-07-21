@@ -527,13 +527,83 @@ async function loadClients() {
 }
 
 let savingBulkDefaults = false;
+let bulkSaveTimer = null;
+
+const BULK_MPM_MIN = 1;
+const BULK_MPM_MAX = 10000;
+const BULK_MPM_DEFAULT = 10;
+
+function clampBulkMpm(value) {
+  return Math.max(BULK_MPM_MIN, Math.min(BULK_MPM_MAX, Math.round(Number(value) || BULK_MPM_DEFAULT)));
+}
+
+function mpmToDelaySeconds(mpm) {
+  return 60 / clampBulkMpm(mpm);
+}
+
+function formatMpmPerSecond(mpm) {
+  const perSec = clampBulkMpm(mpm) / 60;
+  if (perSec >= 10) return String(Math.round(perSec));
+  if (perSec >= 1) return perSec.toFixed(1);
+  return perSec.toFixed(2);
+}
+
+function getBulkMessagesPerMinute() {
+  const hidden = document.getElementById('bulk-mpm');
+  return clampBulkMpm(hidden?.value ?? BULK_MPM_DEFAULT);
+}
+
+function getBulkDelaySeconds() {
+  return mpmToDelaySeconds(getBulkMessagesPerMinute());
+}
+
+function getBulkRpm() {
+  return getBulkMessagesPerMinute();
+}
+
+function updateBulkMpmDisplay() {
+  const mpm = getBulkMessagesPerMinute();
+  const display = document.getElementById('bulk-mpm-display');
+  const estimate = document.getElementById('bulk-mpm-estimate');
+  if (display) display.textContent = String(mpm);
+  if (estimate) {
+    estimate.textContent = `${mpm} رسالة ≈ ~${formatMpmPerSecond(mpm)} رسالة/ث`;
+  }
+  document.querySelectorAll('.bulk-mpm-preset').forEach((btn) => {
+    btn.classList.toggle('active', Number(btn.dataset.mpm) === mpm);
+  });
+}
+
+function applyBulkMpmValue(mpm) {
+  const slider = document.getElementById('bulk-mpm-slider');
+  const hidden = document.getElementById('bulk-mpm');
+  const clamped = clampBulkMpm(mpm);
+  if (hidden) hidden.value = String(clamped);
+  if (slider) slider.value = String(clamped);
+  updateBulkMpmDisplay();
+}
+
+function resolveBulkMpmFromSettings(settings) {
+  if (settings?.bulkMessagesPerMinute) return clampBulkMpm(settings.bulkMessagesPerMinute);
+  if (settings?.bulkRpm) return clampBulkMpm(settings.bulkRpm);
+  if (settings?.bulkDelaySeconds) return clampBulkMpm(60 / settings.bulkDelaySeconds);
+  return BULK_MPM_DEFAULT;
+}
+
+function scheduleSaveBulkDefaults() {
+  if (bulkSaveTimer) clearTimeout(bulkSaveTimer);
+  bulkSaveTimer = setTimeout(saveBulkDefaults, 400);
+}
+
 async function saveBulkDefaults() {
   if (savingBulkDefaults) return;
   savingBulkDefaults = true;
   try {
+    const mpm = getBulkMessagesPerMinute();
     const payload = {
-      bulkDelaySeconds: Number(document.getElementById('bulk-delay')?.value) || 2,
-      bulkRpm: Number(document.getElementById('bulk-rpm')?.value) || 10,
+      bulkMessagesPerMinute: mpm,
+      bulkDelaySeconds: mpmToDelaySeconds(mpm),
+      bulkRpm: mpm,
     };
     await api.request('/api/settings', { method: 'POST', body: JSON.stringify(payload) });
   } finally {
@@ -545,8 +615,9 @@ async function loadSettings() {
   const settings = await api.request('/api/settings');
   if (document.getElementById('rpm')) document.getElementById('rpm').value = settings.rpm;
   if (document.getElementById('cooldown')) document.getElementById('cooldown').value = settings.cooldownSeconds;
-  if (document.getElementById('bulk-delay')) document.getElementById('bulk-delay').value = settings.bulkDelaySeconds ?? 2;
-  if (document.getElementById('bulk-rpm')) document.getElementById('bulk-rpm').value = settings.bulkRpm ?? 10;
+  if (document.getElementById('bulk-mpm')) {
+    applyBulkMpmValue(resolveBulkMpmFromSettings(settings));
+  }
   if (document.getElementById('normalize')) document.getElementById('normalize').checked = settings.normalizeArabicEnabled;
   if (document.getElementById('replyMode')) document.getElementById('replyMode').checked = settings.replyMode;
   if (document.getElementById('defaultEmoji')) document.getElementById('defaultEmoji').value = settings.defaultEmoji || '';
@@ -761,31 +832,52 @@ function renderBacklog(data) {
 }
 
 function renderBulkStatus(state) {
+  const isRunning = state?.state === 'running';
+  const modal = document.getElementById('bulk-progress-modal');
+  if (modal) {
+    if (isRunning) modal.classList.remove('hidden');
+    else modal.classList.add('hidden');
+  }
+
   const status = document.getElementById('bulk-status');
+  const statusLabel = state?.paused ? 'paused' : state?.state || 'idle';
+  if (status) status.textContent = statusLabel;
+
+  const pct = state?.total ? Math.min(100, Math.round((state.sent / state.total) * 100)) : 0;
+
   const progress = document.getElementById('bulk-progress');
-  if (status) status.textContent = `${state.state}${state.paused ? ' (متوقف مؤقتًا)' : ''}`;
-  if (progress) {
-    const pct = state.total ? Math.min(100, Math.round((state.sent / state.total) * 100)) : 0;
-    progress.style.width = `${pct}%`;
+  if (progress) progress.style.width = `${pct}%`;
+
+  const modalFill = document.getElementById('bulk-modal-progress-fill');
+  if (modalFill) modalFill.style.width = `${pct}%`;
+
+  const modalDetail = document.getElementById('bulk-modal-detail');
+  if (modalDetail) modalDetail.textContent = `${state?.sent || 0} / ${state?.total || 0}`;
+
+  const modalStatus = document.getElementById('bulk-modal-status');
+  if (modalStatus) {
+    if (state?.paused) modalStatus.textContent = 'متوقف مؤقتًا';
+    else if (isRunning) modalStatus.textContent = 'جاري الإرسال...';
+    else modalStatus.textContent = 'idle';
   }
 }
 
 async function initBulk() {
   const perms = currentUser?.permissions || {};
   if (!perms.can_send_messages) {
-    const shell = document.querySelector('.app-shell');
+    const shell = document.querySelector('.page-wrap');
     if (shell) shell.innerHTML = '<p class="muted">لا تملك صلاحية الإرسال.</p>';
     return;
   }
   bindBulk();
-  bindForwardingControls();
+  bindBulkMpmControls();
   if (perms.can_manage_lists || perms.can_send_messages || perms.can_manage_forwarding) {
     await loadForwardGroups();
     await loadBulkGroups();
   }
-  if (perms.can_manage_settings || perms.can_manage_lists) {
-    await loadSettings();
-  }
+  await loadSettings();
+  const bulkStatus = await api.request('/api/bulk/status');
+  if (!bulkStatus.error) renderBulkStatus(bulkStatus);
 }
 
 async function initAdmin() {
@@ -951,6 +1043,7 @@ async function loadBulkGroups() {
   const groups = await api.request('/api/groups');
   if (handleApiError(groups, 'fetch groups')) return;
   const select = document.getElementById('bulk-group');
+  if (!select) return;
   select.innerHTML = '';
   groups.forEach((g) => {
     const option = document.createElement('option');
@@ -983,28 +1076,57 @@ function analyzeNotifications() {
   const mode = document.getElementById('bulk-parse-mode').value;
   const messages = parseNotifications(rawText, mode);
   const analysis = document.getElementById('bulk-analysis');
-  analysis.textContent = `عدد الإشعارات: ${messages.length}`;
+  const countEl = document.getElementById('bulk-analysis-count');
+  if (analysis) analysis.classList.remove('hidden');
+  if (countEl) countEl.textContent = String(messages.length);
   return messages;
 }
 
-function bindBulk() {
-  document.getElementById('bulk-delay')?.addEventListener('change', saveBulkDefaults);
-  document.getElementById('bulk-rpm')?.addEventListener('change', saveBulkDefaults);
+function bindBulkMpmControls() {
+  document.getElementById('bulk-mpm-slider')?.addEventListener('input', (e) => {
+    applyBulkMpmValue(e.target.value);
+    scheduleSaveBulkDefaults();
+  });
+  document.querySelectorAll('.bulk-mpm-preset').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyBulkMpmValue(btn.dataset.mpm);
+      scheduleSaveBulkDefaults();
+    });
+  });
+}
 
+function bindBulk() {
   document.getElementById('bulk-analyze').addEventListener('click', analyzeNotifications);
+
+  const pause = () => api.request('/api/bulk/pause', { method: 'POST' });
+  const resume = () => api.request('/api/bulk/resume', { method: 'POST' });
+  const stop = () => api.request('/api/bulk/stop', { method: 'POST' });
 
   document.getElementById('bulk-start').addEventListener('click', async () => {
     const mode = document.getElementById('bulk-parse-mode').value;
     const messages = parseNotifications(document.getElementById('bulk-messages').value, mode);
+    if (!messages.length) {
+      showToast('لا توجد إشعارات للإرسال');
+      return;
+    }
     const groupId = document.getElementById('bulk-group').value;
-    const delaySeconds = Number(document.getElementById('bulk-delay').value) || 2;
-    const rpm = Number(document.getElementById('bulk-rpm').value) || 10;
-    await api.request('/api/bulk/start', { method: 'POST', body: JSON.stringify({ groupId, messages, delaySeconds, rpm }) });
+    const delaySeconds = getBulkDelaySeconds();
+    const rpm = getBulkRpm();
+    const res = await api.request('/api/bulk/start', {
+      method: 'POST',
+      body: JSON.stringify({ groupId, messages, delaySeconds, rpm }),
+    });
+    if (!handleApiError(res, 'bulk start')) {
+      renderBulkStatus({ state: 'running', sent: 0, total: messages.length, paused: false });
+    }
   });
 
-  document.getElementById('bulk-pause').addEventListener('click', () => api.request('/api/bulk/pause', { method: 'POST' }));
-  document.getElementById('bulk-resume').addEventListener('click', () => api.request('/api/bulk/resume', { method: 'POST' }));
-  document.getElementById('bulk-stop').addEventListener('click', () => api.request('/api/bulk/stop', { method: 'POST' }));
+  document.getElementById('bulk-pause').addEventListener('click', pause);
+  document.getElementById('bulk-resume').addEventListener('click', resume);
+  document.getElementById('bulk-stop').addEventListener('click', stop);
+  document.getElementById('bulk-modal-pause')?.addEventListener('click', pause);
+  document.getElementById('bulk-modal-resume')?.addEventListener('click', resume);
+  document.getElementById('bulk-modal-stop')?.addEventListener('click', stop);
 }
 
 function updateHoursLabel() {
