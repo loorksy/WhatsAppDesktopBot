@@ -9,19 +9,22 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Button
 import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
-import com.google.android.material.button.MaterialButton
 import com.whatsappbot.bulk.R
 import com.whatsappbot.bulk.ui.HomeActivity
 import com.whatsappbot.bulk.util.BulkSession
@@ -40,8 +43,8 @@ class FloatingBubbleService : Service() {
     private var bubbleView: View? = null
     private var panelView: View? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
-    private var panelParams: WindowManager.LayoutParams? = null
 
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var collectJob: Job? = null
 
@@ -51,7 +54,12 @@ class FloatingBubbleService : Service() {
     private var panelSeek: SeekBar? = null
     private var panelStatus: TextView? = null
     private var panelSuccess: TextView? = null
-    private var panelSend: MaterialButton? = null
+    private var panelSend: Button? = null
+
+    private fun themedInflater(): LayoutInflater {
+        val themed = ContextThemeWrapper(this, R.style.Theme_BulkSender)
+        return LayoutInflater.from(themed)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -64,7 +72,7 @@ class FloatingBubbleService : Service() {
             BulkSession.ui.collectLatest { state ->
                 renderPanelState(state.state, state.sent, state.total, state.successMessage)
                 if (state.state == BulkState.DONE) {
-                    showPanel()
+                    showPanelSafe()
                 }
             }
         }
@@ -77,7 +85,7 @@ class FloatingBubbleService : Service() {
                 BulkAccessibilityService.instance?.stopLoop()
                 stopSelf()
             }
-            ACTION_SHOW_PANEL -> showPanel()
+            ACTION_SHOW_PANEL -> showPanelSafe()
         }
         return START_STICKY
     }
@@ -86,7 +94,7 @@ class FloatingBubbleService : Service() {
         collectJob?.cancel()
         scope.cancel()
         removeBubble()
-        removePanel()
+        hidePanel()
         super.onDestroy()
     }
 
@@ -101,57 +109,87 @@ class FloatingBubbleService : Service() {
 
     private fun showBubble() {
         if (bubbleView != null) return
-        val view = LayoutInflater.from(this).inflate(R.layout.overlay_bubble, null)
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 40
-            y = 220
-        }
-
-        var downX = 0f
-        var downY = 0f
-        var paramX = 0
-        var paramY = 0
-        var moved = false
-
-        view.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    downX = event.rawX
-                    downY = event.rawY
-                    paramX = params.x
-                    paramY = params.y
-                    moved = false
-                    true
+        try {
+            val view = themedInflater().inflate(R.layout.overlay_bubble, null)
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT,
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = 40
+                y = 220
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
                 }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = (event.rawX - downX).toInt()
-                    val dy = (event.rawY - downY).toInt()
-                    if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
-                    params.x = paramX + dx
-                    params.y = paramY + dy
-                    windowManager.updateViewLayout(view, params)
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (!moved) {
-                        if (panelView == null) showPanel() else hidePanel()
+            }
+
+            var downX = 0f
+            var downY = 0f
+            var paramX = 0
+            var paramY = 0
+            var moved = false
+
+            view.setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = event.rawX
+                        downY = event.rawY
+                        paramX = params.x
+                        paramY = params.y
+                        moved = false
+                        true
                     }
-                    true
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (event.rawX - downX).toInt()
+                        val dy = (event.rawY - downY).toInt()
+                        if (kotlin.math.abs(dx) > 12 || kotlin.math.abs(dy) > 12) moved = true
+                        params.x = paramX + dx
+                        params.y = paramY + dy
+                        try {
+                            windowManager.updateViewLayout(v, params)
+                        } catch (_: Exception) {
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (!moved) {
+                            // Defer so touch gesture finishes before adding another window.
+                            mainHandler.post { togglePanel() }
+                        }
+                        true
+                    }
+                    else -> false
                 }
-                else -> false
+            }
+
+            windowManager.addView(view, params)
+            bubbleView = view
+            bubbleParams = params
+        } catch (e: Exception) {
+            Log.e(TAG, "showBubble failed", e)
+            Toast.makeText(this, "تعذر إظهار الأيقونة: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun togglePanel() {
+        if (panelView != null) hidePanel() else showPanelSafe()
+    }
+
+    private fun showPanelSafe() {
+        mainHandler.post {
+            try {
+                showPanel()
+            } catch (e: Exception) {
+                Log.e(TAG, "showPanel failed", e)
+                Toast.makeText(this, "تعذر فتح النموذج: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
-
-        windowManager.addView(view, params)
-        bubbleView = view
-        bubbleParams = params
     }
 
     private fun showPanel() {
@@ -159,17 +197,25 @@ class FloatingBubbleService : Service() {
             panelView?.visibility = View.VISIBLE
             return
         }
-        val view = LayoutInflater.from(this).inflate(R.layout.overlay_panel, null)
-        val width = (resources.displayMetrics.widthPixels * 0.92f).toInt()
+
+        val view = themedInflater().inflate(R.layout.overlay_panel, null)
+        val width = (resources.displayMetrics.widthPixels * 0.92f).toInt().coerceAtLeast(280)
         val params = WindowManager.LayoutParams(
             width,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.CENTER
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE or
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
 
         panelInput = view.findViewById(R.id.inputMessages)
@@ -180,7 +226,7 @@ class FloatingBubbleService : Service() {
         panelSuccess = view.findViewById(R.id.textSuccess)
         panelSend = view.findViewById(R.id.btnSend)
 
-        view.findViewById<ImageButton>(R.id.btnClosePanel).setOnClickListener { hidePanel() }
+        view.findViewById<TextView>(R.id.btnClosePanel).setOnClickListener { hidePanel() }
 
         panelSeek?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -190,20 +236,32 @@ class FloatingBubbleService : Service() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
 
-        view.findViewById<MaterialButton>(R.id.chip10).setOnClickListener { setMpm(10) }
-        view.findViewById<MaterialButton>(R.id.chip60).setOnClickListener { setMpm(60) }
-        view.findViewById<MaterialButton>(R.id.chip300).setOnClickListener { setMpm(300) }
-        view.findViewById<MaterialButton>(R.id.chip1000).setOnClickListener { setMpm(1000) }
+        view.findViewById<Button>(R.id.chip10).setOnClickListener { setMpm(10) }
+        view.findViewById<Button>(R.id.chip60).setOnClickListener { setMpm(60) }
+        view.findViewById<Button>(R.id.chip300).setOnClickListener { setMpm(300) }
+        view.findViewById<Button>(R.id.chip1000).setOnClickListener { setMpm(1000) }
         setMpm(10)
 
         panelSend?.setOnClickListener { startSending() }
 
+        view.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_OUTSIDE) {
+                // keep panel open; user closes with X
+                true
+            } else {
+                false
+            }
+        }
+
         windowManager.addView(view, params)
         panelView = view
-        panelParams = params
+
+        // Bring panel above bubble visually by re-adding bubble after if needed.
+        bubbleView?.bringToFront()
 
         val current = BulkSession.ui.value
         renderPanelState(current.state, current.sent, current.total, current.successMessage)
+        panelInput?.requestFocus()
     }
 
     private fun hidePanel() {
@@ -214,7 +272,6 @@ class FloatingBubbleService : Service() {
             }
         }
         panelView = null
-        panelParams = null
         panelInput = null
         panelCount = null
         panelMpm = null
@@ -235,8 +292,6 @@ class FloatingBubbleService : Service() {
         bubbleParams = null
     }
 
-    private fun removePanel() = hidePanel()
-
     private fun mpmValue(): Int = ((panelSeek?.progress ?: 9) + 1).coerceIn(1, BulkSession.MAX_MPM)
 
     private fun setMpm(value: Int) {
@@ -250,15 +305,12 @@ class FloatingBubbleService : Service() {
             return
         }
         val raw = panelInput?.text?.toString().orEmpty()
-        val messages = MessageParser.parse(raw, MessageParser.Mode.PARAGRAPH)
+        var messages = MessageParser.parse(raw, MessageParser.Mode.PARAGRAPH)
         if (messages.isEmpty()) {
-            // also try line mode if single block empty paragraphs
-            val lines = MessageParser.parse(raw, MessageParser.Mode.LINES)
-            if (lines.isEmpty()) {
-                Toast.makeText(this, R.string.must_paste, Toast.LENGTH_SHORT).show()
-                return
-            }
-            beginSend(lines)
+            messages = MessageParser.parse(raw, MessageParser.Mode.LINES)
+        }
+        if (messages.isEmpty()) {
+            Toast.makeText(this, R.string.must_paste, Toast.LENGTH_SHORT).show()
             return
         }
         beginSend(messages)
@@ -296,13 +348,9 @@ class FloatingBubbleService : Service() {
         }
         panelStatus?.text = status
 
-        if (!success.isNullOrBlank()) {
+        if (!success.isNullOrBlank() || state == BulkState.DONE) {
             panelSuccess?.visibility = View.VISIBLE
-            panelSuccess?.text = success
-            panelSend?.text = getString(R.string.send_again)
-        } else if (state == BulkState.DONE) {
-            panelSuccess?.visibility = View.VISIBLE
-            panelSuccess?.text = getString(R.string.success_all_sent, total)
+            panelSuccess?.text = success ?: getString(R.string.success_all_sent, total)
             panelSend?.text = getString(R.string.send_again)
         } else {
             if (state != BulkState.SENDING && state != BulkState.WAITING_CHAT) {
@@ -372,6 +420,7 @@ class FloatingBubbleService : Service() {
     }
 
     companion object {
+        private const val TAG = "FloatingBubble"
         private const val CHANNEL_ID = "bulk_bubble"
         private const val NOTIFICATION_ID = 4202
         const val ACTION_STOP_SERVICE = "com.whatsappbot.bulk.STOP_BUBBLE"
