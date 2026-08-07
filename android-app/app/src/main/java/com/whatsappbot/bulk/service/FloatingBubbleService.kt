@@ -200,7 +200,7 @@ class FloatingBubbleService : Service() {
             bubbleParams = params
         } catch (e: Exception) {
             Log.e(TAG, "showBubble failed", e)
-            Toast.makeText(this, "تعذر إظهار الأيقونة: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.overlay_show_failed, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -302,7 +302,7 @@ class FloatingBubbleService : Service() {
                 showPanel()
             } catch (e: Exception) {
                 Log.e(TAG, "showPanel failed", e)
-                Toast.makeText(this, "تعذر فتح النموذج: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, R.string.panel_show_failed, Toast.LENGTH_LONG).show()
             }
         }
     }

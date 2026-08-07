@@ -11,8 +11,8 @@ android {
         applicationId = "com.whatsappbot.bulk"
         minSdk = 24
         targetSdk = 34
-        versionCode = 6
-        versionName = "3.2.0"
+        versionCode = 7
+        versionName = "3.2.1"
     }
 
     buildTypes {
