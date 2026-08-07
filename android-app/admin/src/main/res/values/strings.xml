@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">أدمن الاشتراكات</string>
     <string name="login_title">دخول الأدمن</string>
-    <string name="server_url">رابط السيرفر</string>
     <string name="email">البريد</string>
     <string name="password">كلمة المرور</string>
     <string name="login">دخول</string>

@@ -6,9 +6,8 @@ import android.provider.Settings
 class LicensePrefs(private val context: Context) {
     private val sp = context.getSharedPreferences("license_prefs", Context.MODE_PRIVATE)
 
-    var serverUrl: String
-        get() = sp.getString(KEY_SERVER, "")?.trimEnd('/') ?: ""
-        set(value) = sp.edit().putString(KEY_SERVER, value.trim().trimEnd('/')).apply()
+    val serverUrl: String
+        get() = DEFAULT_SERVER
 
     var licenseCode: String
         get() = sp.getString(KEY_CODE, "") ?: ""
@@ -19,14 +18,14 @@ class LicensePrefs(private val context: Context) {
         return androidId ?: "unknown-device"
     }
 
-    fun isActivated(): Boolean = serverUrl.isNotBlank() && licenseCode.isNotBlank()
+    fun isActivated(): Boolean = licenseCode.isNotBlank()
 
     fun clearActivation() {
         sp.edit().remove(KEY_CODE).apply()
     }
 
     companion object {
-        private const val KEY_SERVER = "server_url"
+        const val DEFAULT_SERVER = "https://bot.lork.cloud"
         private const val KEY_CODE = "license_code"
     }
 }

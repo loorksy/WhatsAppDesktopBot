@@ -23,7 +23,6 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         prefs = AdminPrefs(this)
-        binding.inputServer.setText(prefs.serverUrl)
         binding.inputEmail.setText(prefs.email)
 
         if (prefs.isLoggedIn()) {
@@ -36,14 +35,12 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun doLogin() {
-        val server = binding.inputServer.text?.toString()?.trim().orEmpty()
         val email = binding.inputEmail.text?.toString()?.trim().orEmpty()
         val password = binding.inputPassword.text?.toString().orEmpty()
-        if (server.isBlank() || email.isBlank() || password.isBlank()) {
+        if (email.isBlank() || password.isBlank()) {
             showError(getString(R.string.login_failed))
             return
         }
-        prefs.serverUrl = server
         prefs.email = email
         binding.btnLogin.isEnabled = false
         binding.textError.visibility = View.GONE
@@ -56,7 +53,6 @@ class LoginActivity : AppCompatActivity() {
                 startActivity(Intent(this@LoginActivity, LicensesActivity::class.java))
                 finish()
             } else if (ok) {
-                // login succeeded but cookie missing — still try licenses page after storing nothing
                 Toast.makeText(this@LoginActivity, R.string.network_error, Toast.LENGTH_LONG).show()
             } else {
                 showError(getString(R.string.login_failed))

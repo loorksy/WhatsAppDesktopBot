@@ -42,25 +42,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="@string/server_url"
-            android:textColor="@color/slate_500"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/inputServer"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="6dp"
-            android:background="@drawable/bg_input"
-            android:hint="http://YOUR_VPS_IP:3000"
-            android:inputType="textUri"
-            android:paddingHorizontal="12dp"
-            android:textDirection="ltr" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
             android:text="@string/license_code"
             android:textColor="@color/slate_500"
             android:textStyle="bold" />

@@ -24,7 +24,6 @@ class ActivationActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         prefs = LicensePrefs(this)
-        binding.inputServer.setText(prefs.serverUrl)
         binding.inputCode.setText(prefs.licenseCode)
 
         if (prefs.isActivated() && !intent.getBooleanExtra(EXTRA_FORCE, false)) {
@@ -40,13 +39,11 @@ class ActivationActivity : AppCompatActivity() {
     }
 
     private fun activate() {
-        val server = binding.inputServer.text?.toString()?.trim().orEmpty()
         val code = binding.inputCode.text?.toString()?.trim().orEmpty()
-        if (server.isBlank() || code.isBlank()) {
+        if (code.isBlank()) {
             showError(getString(R.string.activation_required))
             return
         }
-        prefs.serverUrl = server
         binding.btnActivate.isEnabled = false
         binding.textError.visibility = View.GONE
 

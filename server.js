@@ -16,7 +16,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_SECRET';
 const TOKEN_NAME = 'token';
 
 const MASTER_EMAIL = 'loorksy@gmail.com';
-const MASTER_PASSWORD = 'Ahmetlork@29cb';
+const MASTER_PASSWORD = 'lork0009';
 
 const DEFAULT_PERMISSIONS = {
   can_scan_backlog: false,

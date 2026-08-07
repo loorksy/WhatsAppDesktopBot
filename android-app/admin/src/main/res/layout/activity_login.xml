@@ -22,21 +22,10 @@
             android:textStyle="bold" />
 
         <EditText
-            android:id="@+id/inputServer"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="28dp"
-            android:background="@drawable/bg_input"
-            android:hint="@string/server_url"
-            android:inputType="textUri"
-            android:paddingHorizontal="12dp"
-            android:textDirection="ltr" />
-
-        <EditText
             android:id="@+id/inputEmail"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="28dp"
             android:background="@drawable/bg_input"
             android:hint="@string/email"
             android:inputType="textEmailAddress"

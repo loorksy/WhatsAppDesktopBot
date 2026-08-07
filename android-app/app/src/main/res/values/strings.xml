@@ -41,11 +41,10 @@
     <string name="drop_to_close">اسحب هنا للإغلاق</string>
     <string name="closed_by_drop">تم إغلاق الأيقونة</string>
     <string name="activation_title">تفعيل الاشتراك</string>
-    <string name="activation_hint">أدخل رابط السيرفر ورمز الاشتراك الذي وصلك من الأدمن</string>
-    <string name="server_url">رابط السيرفر</string>
+    <string name="activation_hint">أدخل رمز الاشتراك الذي وصلك من الأدمن</string>
     <string name="license_code">رمز الاشتراك</string>
     <string name="activate">تفعيل</string>
-    <string name="activation_required">يجب تفعيل الاشتراك أولاً</string>
+    <string name="activation_required">أدخل رمز الاشتراك أولاً</string>
     <string name="activation_success">تم التفعيل بنجاح</string>
     <string name="activation_invalid">رمز غير صالح</string>
     <string name="activation_disabled">تم إيقاف اشتراكك من الأدمن</string>

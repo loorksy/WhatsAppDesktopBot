@@ -5,9 +5,8 @@ import android.content.Context
 class AdminPrefs(context: Context) {
     private val sp = context.getSharedPreferences("admin_prefs", Context.MODE_PRIVATE)
 
-    var serverUrl: String
-        get() = sp.getString(KEY_SERVER, "")?.trimEnd('/') ?: ""
-        set(value) = sp.edit().putString(KEY_SERVER, value.trim().trimEnd('/')).apply()
+    val serverUrl: String
+        get() = DEFAULT_SERVER
 
     var email: String
         get() = sp.getString(KEY_EMAIL, "") ?: ""
@@ -17,14 +16,14 @@ class AdminPrefs(context: Context) {
         get() = sp.getString(KEY_COOKIE, "") ?: ""
         set(value) = sp.edit().putString(KEY_COOKIE, value).apply()
 
-    fun isLoggedIn(): Boolean = serverUrl.isNotBlank() && cookie.isNotBlank()
+    fun isLoggedIn(): Boolean = cookie.isNotBlank()
 
     fun clearSession() {
         sp.edit().remove(KEY_COOKIE).apply()
     }
 
     companion object {
-        private const val KEY_SERVER = "server_url"
+        const val DEFAULT_SERVER = "https://bot.lork.cloud"
         private const val KEY_EMAIL = "email"
         private const val KEY_COOKIE = "cookie"
     }
