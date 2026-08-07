@@ -34,9 +34,10 @@ import com.whatsappbot.bulk.ui.ActivationActivity
 import com.whatsappbot.bulk.ui.HomeActivity
 import com.whatsappbot.bulk.util.BulkSession
 import com.whatsappbot.bulk.util.BulkState
+import com.whatsappbot.bulk.util.DualAppSupport
 import com.whatsappbot.bulk.util.MessageParser
 import com.whatsappbot.bulk.util.WhatsAppApps
-import com.whatsappbot.bulk.util.WhatsAppNodes
+import com.whatsappbot.bulk.util.WhatsAppWindows
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -471,18 +472,24 @@ class FloatingBubbleService : Service() {
         BulkAccessibilityService.instance?.startLoop()
         hidePanel()
         openWhatsAppIfNeeded()
-        Toast.makeText(this, R.string.must_open_chat, Toast.LENGTH_LONG).show()
+        Toast.makeText(this, DualAppSupport.guidanceMessage(this), Toast.LENGTH_LONG).show()
     }
 
     /**
-     * Do not force-open primary WhatsApp if the user is already inside a chat
-     * (including dual WhatsApp / Business / clones). Otherwise show an app chooser.
+     * Samsung Dual Messenger and Xiaomi/Redmi Dual Apps share the same package name.
+     * Auto-launching would open the primary WhatsApp and break the dual instance,
+     * so on those devices we never force-open WhatsApp.
      */
     private fun openWhatsAppIfNeeded() {
-        val root = BulkAccessibilityService.instance?.rootInActiveWindow
-        val alreadyInChat = WhatsAppNodes.isInChat(root)
-        root?.recycle()
-        if (alreadyInChat) return
+        val service = BulkAccessibilityService.instance
+        if (service != null && WhatsAppWindows.isAnyChatVisible(service)) {
+            return
+        }
+
+        // Dual-app OEMs: user must open dual WhatsApp manually.
+        if (DualAppSupport.shouldAvoidAutoLaunch(this)) {
+            return
+        }
 
         val apps = WhatsAppApps.installed(this)
         when {

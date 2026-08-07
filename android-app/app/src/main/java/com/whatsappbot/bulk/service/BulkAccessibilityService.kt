@@ -9,6 +9,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.whatsappbot.bulk.util.BulkSession
 import com.whatsappbot.bulk.util.BulkState
 import com.whatsappbot.bulk.util.WhatsAppNodes
+import com.whatsappbot.bulk.util.WhatsAppWindows
 
 class BulkAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
@@ -37,15 +38,12 @@ class BulkAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (!BulkSession.isActive() || sendingStep) return
         val pkg = event?.packageName?.toString()
-        // Accept official WhatsApp, Business, dual apps, and clones.
+        // Accept official WhatsApp, Business, Samsung/Xiaomi dual apps, and clones.
         if (pkg != null && !WhatsAppNodes.isSupportedPackage(pkg)) {
-            val root = rootInActiveWindow
-            val inChat = WhatsAppNodes.isInChat(root)
-            root?.recycle()
-            if (!inChat) return
+            if (!WhatsAppWindows.isAnyChatVisible(this)) return
         }
         if (!loopPosted) {
-            scheduleNext(200)
+            scheduleNext(150)
         }
     }
 
@@ -81,9 +79,9 @@ class BulkAccessibilityService : AccessibilityService() {
             return
         }
 
-        val root = rootInActiveWindow
-        if (root == null || !WhatsAppNodes.isWhatsAppWindow(root) || !WhatsAppNodes.isInChat(root)) {
-            root?.recycle()
+        // Search across all interactive windows so dual WhatsApp on Samsung/Xiaomi is found.
+        val root = WhatsAppWindows.findChatRoot(this)
+        if (root == null) {
             BulkSession.markWaitingChat()
             return
         }
@@ -119,7 +117,7 @@ class BulkAccessibilityService : AccessibilityService() {
     }
 
     private fun clickSendAndContinue() {
-        val root = rootInActiveWindow
+        val root = WhatsAppWindows.findChatRoot(this)
         val send = WhatsAppNodes.findSend(root)
         val clicked = send?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
         send?.recycle()

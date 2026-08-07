@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">أداة الإرسال</string>
     <string name="developed_by">تم التطوير بواسطة Ahmed isa</string>
-    <string name="home_setup_hint">أكمل إعداد الأذونات المطلوبة، ثم ابدأ جلسة الإرسال. يعمل المساعد عبر أيقونة عائمة دون إبقاء التطبيق مفتوحًا.</string>
+    <string name="home_setup_hint">أكمل إعداد الأذونات المطلوبة، ثم ابدأ جلسة الإرسال. على سامسونج وريدمي افتح واتساب المزدوج يدويًا قبل الإرسال.</string>
     <string name="bulk_title">جلسة الإرسال</string>
     <string name="bulk_hint">الصق الرسائل، راجع العدد، ثم ابدأ الإرسال داخل محادثة واتساب أو واتساب المزدوج.</string>
     <string name="paste_messages">الرسائل</string>
@@ -15,6 +15,8 @@
     <string name="message_count_zero">عدد الرسائل: 0</string>
     <string name="must_paste">يرجى إدخال الرسائل قبل المتابعة</string>
     <string name="must_open_chat">افتح المحادثة المطلوبة في واتساب أو واتساب المزدوج أو واتساب للأعمال، ثم ابقَ داخل المحادثة</string>
+    <string name="dual_app_guide_samsung">على أجهزة سامسونج: افتح واتساب المزدوج (Dual Messenger) يدويًا وادخل المحادثة، ثم ابدأ الإرسال</string>
+    <string name="dual_app_guide_xiaomi">على أجهزة ريدمي/شاومي: افتح واتساب المزدوج يدويًا وادخل المحادثة، ثم ابدأ الإرسال</string>
     <string name="choose_whatsapp">اختر تطبيق واتساب</string>
     <string name="whatsapp_not_found">لم يتم العثور على تطبيق واتساب على الجهاز</string>
     <string name="enable_accessibility">تفعيل إمكانية الوصول</string>
