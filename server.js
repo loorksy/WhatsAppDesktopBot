@@ -159,6 +159,31 @@ app.get('/download/bulk-sender.apk', (req, res) => {
   return res.download(filePath, 'bulk-sender.apk');
 });
 
+// Public app update metadata for in-app updater
+app.get('/api/app/update', async (req, res) => {
+  const candidates = [
+    path.join(__dirname, 'releases', 'app-update.json'),
+    path.join(__dirname, 'public', 'downloads', 'app-update.json'),
+  ];
+  const filePath = candidates.find((p) => fs.existsSync(p));
+  if (!filePath) {
+    return res.status(404).json({ error: 'UPDATE_INFO_MISSING' });
+  }
+  try {
+    const raw = await fs.readJSON(filePath);
+    return res.json({
+      versionCode: Number(raw.versionCode) || 0,
+      versionName: String(raw.versionName || ''),
+      force: !!raw.force,
+      apkUrl: String(raw.apkUrl || 'https://bot.lork.cloud/download/bulk-sender.apk'),
+      title: String(raw.title || 'يتوفر تحديث جديد'),
+      changelog: Array.isArray(raw.changelog) ? raw.changelog.map(String) : [],
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'UPDATE_INFO_INVALID' });
+  }
+});
+
 function handleWaNotReady(res, err) {
   if (err && (err.message === 'WA_NOT_READY' || err.code === 'WA_NOT_READY')) {
     return res.status(409).json({ error: 'WA_NOT_READY' });

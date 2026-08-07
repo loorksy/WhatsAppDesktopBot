@@ -10,6 +10,7 @@ import com.whatsappbot.bulk.R
 import com.whatsappbot.bulk.data.LicenseClient
 import com.whatsappbot.bulk.data.LicensePrefs
 import com.whatsappbot.bulk.databinding.ActivityActivationBinding
+import com.whatsappbot.bulk.util.AppUpdateManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -17,6 +18,7 @@ import kotlinx.coroutines.withContext
 class ActivationActivity : AppCompatActivity() {
     private lateinit var binding: ActivityActivationBinding
     private lateinit var prefs: LicensePrefs
+    private lateinit var updateManager: AppUpdateManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,6 +26,7 @@ class ActivationActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         prefs = LicensePrefs(this)
+        updateManager = AppUpdateManager(this)
         binding.inputCode.setText(prefs.licenseCode)
 
         if (prefs.isActivated() && !intent.getBooleanExtra(EXTRA_FORCE, false)) {
@@ -36,6 +39,14 @@ class ActivationActivity : AppCompatActivity() {
         }
 
         binding.btnActivate.setOnClickListener { activate() }
+        updateManager.check(showDialogIfAvailable = true, notifyIfAvailable = true)
+    }
+
+    override fun onDestroy() {
+        if (::updateManager.isInitialized) {
+            updateManager.unregister()
+        }
+        super.onDestroy()
     }
 
     private fun activate() {

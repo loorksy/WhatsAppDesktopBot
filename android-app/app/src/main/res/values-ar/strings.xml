@@ -59,4 +59,19 @@
     <string name="shortcut_not_supported">تعذر إنشاء الاختصار تلقائيًا. استخدم أيقونة «تفعيل الإرسال» من قائمة التطبيقات</string>
     <string name="overlay_show_failed">تعذر تشغيل الأيقونة العائمة</string>
     <string name="panel_show_failed">تعذر فتح لوحة الإرسال</string>
+    <string name="update_available_title">يتوفر تحديث جديد</string>
+    <string name="update_available_text">الإصدار %1$s جاهز للتثبيت</string>
+    <string name="update_dialog_message">الإصدار %1$s\n\nما الجديد:\n%2$s</string>
+    <string name="update_no_notes">تحسينات عامة في الأداء والاستقرار</string>
+    <string name="update_now">تحديث الآن</string>
+    <string name="update_later">لاحقًا</string>
+    <string name="update_downloading_title">جارٍ تنزيل التحديث</string>
+    <string name="update_downloading_text">الإصدار %1$s</string>
+    <string name="update_download_started">بدأ تنزيل التحديث</string>
+    <string name="update_download_failed">تعذر تنزيل التحديث. حاول مرة أخرى</string>
+    <string name="update_install_failed">تعذر بدء التثبيت. فعّل التثبيت من هذا المصدر ثم أعد المحاولة</string>
+    <string name="update_allow_install">يلزم السماح بتثبيت التطبيقات من هذا المصدر لإكمال التحديث</string>
+    <string name="update_channel">تحديثات التطبيق</string>
+    <string name="check_update">التحقق من التحديثات</string>
+    <string name="update_latest">أنت تستخدم أحدث إصدار</string>
 </resources>

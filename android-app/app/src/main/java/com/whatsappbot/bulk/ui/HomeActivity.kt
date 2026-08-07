@@ -15,12 +15,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.whatsappbot.bulk.BuildConfig
 import com.whatsappbot.bulk.R
 import com.whatsappbot.bulk.data.LicenseClient
 import com.whatsappbot.bulk.data.LicensePrefs
+import com.whatsappbot.bulk.data.UpdateClient
 import com.whatsappbot.bulk.databinding.ActivityHomeBinding
 import com.whatsappbot.bulk.service.BulkAccessibilityService
 import com.whatsappbot.bulk.service.FloatingBubbleService
+import com.whatsappbot.bulk.util.AppUpdateManager
 import com.whatsappbot.bulk.util.ShortcutHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,6 +32,7 @@ import kotlinx.coroutines.withContext
 class HomeActivity : AppCompatActivity() {
     private lateinit var binding: ActivityHomeBinding
     private lateinit var prefs: LicensePrefs
+    private lateinit var updateManager: AppUpdateManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +44,7 @@ class HomeActivity : AppCompatActivity() {
 
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        updateManager = AppUpdateManager(this)
 
         binding.btnAccessibility.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -49,6 +54,7 @@ class HomeActivity : AppCompatActivity() {
         binding.btnAddShortcut.setOnClickListener {
             ShortcutHelper.requestPinShortcut(this)
         }
+        binding.btnCheckUpdate.setOnClickListener { checkUpdateManual() }
         binding.btnLogoutLicense.setOnClickListener {
             prefs.clearActivation()
             FloatingBubbleService.stop(this)
@@ -58,6 +64,14 @@ class HomeActivity : AppCompatActivity() {
         requestNotificationPermission()
         ShortcutHelper.ensureDynamicShortcut(this)
         verifyLicense()
+        handleUpdateIntent(intent)
+        updateManager.check(showDialogIfAvailable = true, notifyIfAvailable = true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
     }
 
     override fun onResume() {
@@ -69,6 +83,45 @@ class HomeActivity : AppCompatActivity() {
         }
         refreshStatus()
         verifyLicense()
+    }
+
+    override fun onDestroy() {
+        if (::updateManager.isInitialized) {
+            updateManager.unregister()
+        }
+        super.onDestroy()
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(AppUpdateManager.EXTRA_SHOW_UPDATE, false) == true) {
+            lifecycleScope.launch {
+                val info = withContext(Dispatchers.IO) { UpdateClient().fetchUpdateInfo() }
+                if (info != null && UpdateClient().isNewer(info)) {
+                    updateManager.showUpdateDialog(info)
+                }
+            }
+        }
+    }
+
+    private fun checkUpdateManual() {
+        binding.btnCheckUpdate.isEnabled = false
+        lifecycleScope.launch {
+            val info = withContext(Dispatchers.IO) { UpdateClient().fetchUpdateInfo() }
+            binding.btnCheckUpdate.isEnabled = true
+            if (info == null) {
+                Toast.makeText(this@HomeActivity, R.string.activation_network, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            if (UpdateClient().isNewer(info)) {
+                updateManager.showUpdateDialog(info)
+            } else {
+                Toast.makeText(
+                    this@HomeActivity,
+                    getString(R.string.update_latest) + " (${BuildConfig.VERSION_NAME})",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
     }
 
     private fun verifyLicense() {
