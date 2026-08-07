@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "BulkSender"
 include(":app")
+include(":admin")

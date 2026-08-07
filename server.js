@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const WhatsAppBot = require('./bot');
 const store = require('./store');
+const licenses = require('./licenses');
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_SECRET';
@@ -185,6 +186,37 @@ app.post('/api/login', async (req, res) => {
   const token = signToken(user);
   res.cookie(TOKEN_NAME, token, { httpOnly: true, sameSite: 'lax' });
   res.json({ success: true, user: sanitizeUser(user) });
+});
+
+// Public license endpoints for the standalone sender APK
+app.post('/api/license/activate', async (req, res) => {
+  try {
+    const result = await licenses.activate({
+      code: req.body?.code,
+      deviceId: req.body?.deviceId,
+    });
+    res.json(result);
+  } catch (err) {
+    const code = err.code || 'ERROR';
+    const status =
+      code === 'INVALID_CODE' || code === 'DISABLED' || code === 'DEVICE_MISMATCH'
+        ? 403
+        : code === 'MISSING_FIELDS'
+          ? 400
+          : 500;
+    res.status(status).json({ error: code });
+  }
+});
+
+app.post('/api/license/status', async (req, res) => {
+  const result = await licenses.checkStatus({
+    code: req.body?.code,
+    deviceId: req.body?.deviceId,
+  });
+  if (!result.ok) {
+    return res.status(403).json(result);
+  }
+  return res.json(result);
 });
 
 app.use('/api', authMiddleware);
@@ -430,6 +462,35 @@ app.delete('/api/users/:email', requireAdmin, async (req, res) => {
   let users = (await store.read('users.json')) || [];
   users = users.filter((u) => u.email !== email);
   await store.write('users.json', users);
+  res.json({ success: true });
+});
+
+app.get('/api/licenses', requireAdmin, async (req, res) => {
+  const list = await licenses.listLicenses();
+  res.json(list);
+});
+
+app.post('/api/licenses', requireAdmin, async (req, res) => {
+  const license = await licenses.createLicense({
+    note: req.body?.note || '',
+    createdBy: req.user?.email || '',
+  });
+  res.json({ success: true, license });
+});
+
+app.put('/api/licenses/:id', requireAdmin, async (req, res) => {
+  const updated = await licenses.updateLicense(req.params.id, {
+    active: req.body?.active,
+    note: req.body?.note,
+    resetDevice: !!req.body?.resetDevice,
+  });
+  if (!updated) return res.status(404).json({ error: 'NOT_FOUND' });
+  res.json({ success: true, license: updated });
+});
+
+app.delete('/api/licenses/:id', requireAdmin, async (req, res) => {
+  const ok = await licenses.deleteLicense(req.params.id);
+  if (!ok) return res.status(404).json({ error: 'NOT_FOUND' });
   res.json({ success: true });
 });
 

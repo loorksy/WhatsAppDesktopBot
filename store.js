@@ -29,6 +29,7 @@ const defaultFiles = {
   'groupDirectory.json': {},
   'users.json': [],
   'nameTracking.json': { pending: [], interacted: [], seenIds: [] },
+  'licenses.json': [],
 };
 
 function ensureDataDir() {

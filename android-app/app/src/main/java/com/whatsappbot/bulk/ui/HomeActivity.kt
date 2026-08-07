@@ -14,16 +14,29 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.whatsappbot.bulk.R
+import com.whatsappbot.bulk.data.LicenseClient
+import com.whatsappbot.bulk.data.LicensePrefs
 import com.whatsappbot.bulk.databinding.ActivityHomeBinding
 import com.whatsappbot.bulk.service.BulkAccessibilityService
 import com.whatsappbot.bulk.service.FloatingBubbleService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HomeActivity : AppCompatActivity() {
     private lateinit var binding: ActivityHomeBinding
+    private lateinit var prefs: LicensePrefs
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prefs = LicensePrefs(this)
+        if (!prefs.isActivated()) {
+            goActivation(force = true)
+            return
+        }
+
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -32,13 +45,42 @@ class HomeActivity : AppCompatActivity() {
         }
         binding.btnOverlay.setOnClickListener { requestOverlayPermission() }
         binding.btnStartBubble.setOnClickListener { startBubbleAndMinimize() }
+        binding.btnLogoutLicense.setOnClickListener {
+            prefs.clearActivation()
+            FloatingBubbleService.stop(this)
+            goActivation(force = true)
+        }
 
         requestNotificationPermission()
+        verifyLicense()
     }
 
     override fun onResume() {
         super.onResume()
+        if (!::binding.isInitialized) return
+        if (!prefs.isActivated()) {
+            goActivation(force = true)
+            return
+        }
         refreshStatus()
+    }
+
+    private fun verifyLicense() {
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { LicenseClient(prefs).checkStatus() }
+            if (!result.active) {
+                if (result.error == "DISABLED" || result.error == "INVALID_CODE" || result.error == "DEVICE_MISMATCH") {
+                    prefs.clearActivation()
+                    val msg = when (result.error) {
+                        "DISABLED" -> getString(R.string.activation_disabled)
+                        "DEVICE_MISMATCH" -> getString(R.string.activation_device)
+                        else -> getString(R.string.activation_invalid)
+                    }
+                    Toast.makeText(this@HomeActivity, msg, Toast.LENGTH_LONG).show()
+                    goActivation(force = true)
+                }
+            }
+        }
     }
 
     private fun refreshStatus() {
@@ -60,6 +102,11 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun startBubbleAndMinimize() {
+        if (!prefs.isActivated()) {
+            Toast.makeText(this, R.string.activation_required, Toast.LENGTH_LONG).show()
+            goActivation(force = true)
+            return
+        }
         if (!isAccessibilityEnabled()) {
             Toast.makeText(this, R.string.accessibility_required, Toast.LENGTH_LONG).show()
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -73,7 +120,6 @@ class HomeActivity : AppCompatActivity() {
 
         FloatingBubbleService.start(this)
         Toast.makeText(this, R.string.bubble_started, Toast.LENGTH_SHORT).show()
-        // Leave the app UI; keep only the floating bubble.
         moveTaskToBack(true)
     }
 
@@ -117,5 +163,12 @@ class HomeActivity : AppCompatActivity() {
             arrayOf(Manifest.permission.POST_NOTIFICATIONS),
             1001,
         )
+    }
+
+    private fun goActivation(force: Boolean) {
+        startActivity(
+            Intent(this, ActivationActivity::class.java).putExtra(ActivationActivity.EXTRA_FORCE, force)
+        )
+        finish()
     }
 }

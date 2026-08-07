@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">أدمن الاشتراكات</string>
+    <string name="login_title">دخول الأدمن</string>
+    <string name="server_url">رابط السيرفر</string>
+    <string name="email">البريد</string>
+    <string name="password">كلمة المرور</string>
+    <string name="login">دخول</string>
+    <string name="licenses_title">الاشتراكات</string>
+    <string name="create_license">إنشاء رمز جديد</string>
+    <string name="note_hint">ملاحظة (اسم المستخدم اختياري)</string>
+    <string name="active">مفعّل</string>
+    <string name="disabled">موقوف</string>
+    <string name="enable">تفعيل</string>
+    <string name="disable">إيقاف</string>
+    <string name="reset_device">فك ربط الجهاز</string>
+    <string name="delete">حذف</string>
+    <string name="copy_code">نسخ الرمز</string>
+    <string name="logout">خروج</string>
+    <string name="refresh">تحديث</string>
+    <string name="login_failed">فشل تسجيل الدخول</string>
+    <string name="network_error">تعذر الاتصال بالسيرفر</string>
+    <string name="created">تم إنشاء الرمز</string>
+    <string name="copied">تم النسخ</string>
+    <string name="no_device">غير مربوط</string>
+    <string name="device_bound">جهاز مربوط</string>
+</resources>

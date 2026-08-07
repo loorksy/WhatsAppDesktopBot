@@ -26,6 +26,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.whatsappbot.bulk.R
+import com.whatsappbot.bulk.data.LicenseClient
+import com.whatsappbot.bulk.data.LicensePrefs
+import com.whatsappbot.bulk.ui.ActivationActivity
 import com.whatsappbot.bulk.ui.HomeActivity
 import com.whatsappbot.bulk.util.BulkSession
 import com.whatsappbot.bulk.util.BulkState
@@ -35,18 +38,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FloatingBubbleService : Service() {
     private lateinit var windowManager: WindowManager
     private var bubbleView: View? = null
     private var panelView: View? = null
+    private var closeZoneView: View? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var collectJob: Job? = null
+    private var licenseJob: Job? = null
 
     private var panelInput: EditText? = null
     private var panelCount: TextView? = null
@@ -76,14 +84,18 @@ class FloatingBubbleService : Service() {
                 }
             }
         }
+        licenseJob = scope.launch {
+            while (isActive) {
+                delay(5 * 60_000L)
+                verifyLicenseOrShutdown()
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP_SERVICE -> {
-                BulkSession.stop()
-                BulkAccessibilityService.instance?.stopLoop()
-                stopSelf()
+                shutdownCompletely()
             }
             ACTION_SHOW_PANEL -> showPanelSafe()
         }
@@ -92,7 +104,9 @@ class FloatingBubbleService : Service() {
 
     override fun onDestroy() {
         collectJob?.cancel()
+        licenseJob?.cancel()
         scope.cancel()
+        hideCloseZone()
         removeBubble()
         hidePanel()
         super.onDestroy()
@@ -134,6 +148,8 @@ class FloatingBubbleService : Service() {
             var paramX = 0
             var paramY = 0
             var moved = false
+            val screenHeight = resources.displayMetrics.heightPixels
+            val closeThresholdY = (screenHeight * 0.78f).toInt()
 
             view.setOnTouchListener { v, event ->
                 when (event.actionMasked) {
@@ -155,11 +171,21 @@ class FloatingBubbleService : Service() {
                             windowManager.updateViewLayout(v, params)
                         } catch (_: Exception) {
                         }
+                        if (moved) {
+                            showCloseZone()
+                            highlightCloseZone(event.rawY >= closeThresholdY)
+                        }
                         true
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        if (!moved) {
-                            // Defer so touch gesture finishes before adding another window.
+                        val dropClose = moved && event.rawY >= closeThresholdY
+                        hideCloseZone()
+                        if (dropClose) {
+                            mainHandler.post {
+                                Toast.makeText(this, R.string.closed_by_drop, Toast.LENGTH_SHORT).show()
+                                shutdownCompletely()
+                            }
+                        } else if (!moved) {
                             mainHandler.post { togglePanel() }
                         }
                         true
@@ -175,6 +201,86 @@ class FloatingBubbleService : Service() {
             Log.e(TAG, "showBubble failed", e)
             Toast.makeText(this, "تعذر إظهار الأيقونة: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun showCloseZone() {
+        if (closeZoneView != null) return
+        try {
+            val view = themedInflater().inflate(R.layout.overlay_close_zone, null)
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT,
+            ).apply {
+                gravity = Gravity.BOTTOM
+            }
+            windowManager.addView(view, params)
+            closeZoneView = view
+        } catch (e: Exception) {
+            Log.e(TAG, "showCloseZone failed", e)
+        }
+    }
+
+    private fun highlightCloseZone(active: Boolean) {
+        val icon = closeZoneView?.findViewById<TextView>(R.id.closeZoneIcon) ?: return
+        icon.scaleX = if (active) 1.15f else 1f
+        icon.scaleY = if (active) 1.15f else 1f
+        icon.alpha = if (active) 1f else 0.85f
+    }
+
+    private fun hideCloseZone() {
+        closeZoneView?.let {
+            try {
+                windowManager.removeView(it)
+            } catch (_: Exception) {
+            }
+        }
+        closeZoneView = null
+    }
+
+    private fun shutdownCompletely() {
+        BulkSession.stop()
+        BulkAccessibilityService.instance?.stopLoop()
+        hidePanel()
+        hideCloseZone()
+        stopSelf()
+    }
+
+    private suspend fun verifyLicenseOrShutdown() {
+        val prefs = LicensePrefs(this)
+        if (!prefs.isActivated()) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@FloatingBubbleService, R.string.activation_required, Toast.LENGTH_LONG).show()
+                openActivation()
+                shutdownCompletely()
+            }
+            return
+        }
+        val result = withContext(Dispatchers.IO) {
+            LicenseClient(prefs).checkStatus()
+        }
+        if (!result.active) {
+            withContext(Dispatchers.Main) {
+                if (result.error == "DISABLED") {
+                    prefs.clearActivation()
+                    Toast.makeText(this@FloatingBubbleService, R.string.activation_disabled, Toast.LENGTH_LONG).show()
+                } else if (result.error == "INVALID_CODE" || result.error == "DEVICE_MISMATCH") {
+                    prefs.clearActivation()
+                    Toast.makeText(this@FloatingBubbleService, R.string.activation_invalid, Toast.LENGTH_LONG).show()
+                }
+                openActivation()
+                shutdownCompletely()
+            }
+        }
+    }
+
+    private fun openActivation() {
+        val intent = Intent(this, ActivationActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
     }
 
     private fun togglePanel() {

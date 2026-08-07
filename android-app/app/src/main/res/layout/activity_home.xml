@@ -86,4 +86,12 @@
         android:text="@string/start_bubble_hint"
         android:textColor="@color/slate_500"
         android:textSize="13sp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnLogoutLicense"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="18dp"
+        android:text="@string/logout_license" />
 </LinearLayout>
