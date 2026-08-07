@@ -50,4 +50,25 @@ object WhatsAppWindows {
         root.recycle()
         return true
     }
+
+    /** True when WhatsApp / Business / dual clone is already in the foreground windows. */
+    fun isAnyWhatsAppVisible(service: AccessibilityService): Boolean {
+        service.rootInActiveWindow?.let { root ->
+            val pkg = root.packageName?.toString()
+            val hit = WhatsAppNodes.isSupportedPackage(pkg) || WhatsAppNodes.isInChat(root)
+            root.recycle()
+            if (hit) return true
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return false
+        val windows = runCatching { service.windows }.getOrNull().orEmpty()
+        for (window in windows) {
+            val root = runCatching { window.root }.getOrNull() ?: continue
+            val pkg = root.packageName?.toString()
+            val hit = WhatsAppNodes.isSupportedPackage(pkg) || WhatsAppNodes.isInChat(root)
+            root.recycle()
+            if (hit) return true
+        }
+        return false
+    }
 }

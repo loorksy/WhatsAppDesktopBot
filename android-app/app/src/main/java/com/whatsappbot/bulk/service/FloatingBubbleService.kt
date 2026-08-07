@@ -360,7 +360,7 @@ class FloatingBubbleService : Service() {
         view.findViewById<Button>(R.id.chip60).setOnClickListener { setMpm(60) }
         view.findViewById<Button>(R.id.chip300).setOnClickListener { setMpm(300) }
         view.findViewById<Button>(R.id.chip1000).setOnClickListener { setMpm(1000) }
-        setMpm(10)
+        setMpm(DEFAULT_MPM)
 
         panelSend?.setOnClickListener { startSending() }
         panelInput?.addTextChangedListener(object : TextWatcher {
@@ -434,7 +434,8 @@ class FloatingBubbleService : Service() {
         bubbleParams = null
     }
 
-    private fun mpmValue(): Int = ((panelSeek?.progress ?: 9) + 1).coerceIn(1, BulkSession.MAX_MPM)
+    private fun mpmValue(): Int =
+        ((panelSeek?.progress ?: (DEFAULT_MPM - 1)) + 1).coerceIn(1, BulkSession.MAX_MPM)
 
     private fun setMpm(value: Int) {
         panelSeek?.progress = (value - 1).coerceIn(0, BulkSession.MAX_MPM - 1)
@@ -471,44 +472,44 @@ class FloatingBubbleService : Service() {
         BulkSession.prepare(messages, mpmValue())
         BulkAccessibilityService.instance?.startLoop()
         hidePanel()
-        openWhatsAppIfNeeded()
-        Toast.makeText(this, DualAppSupport.guidanceMessage(this), Toast.LENGTH_LONG).show()
+        val openedChooser = openWhatsAppIfNeeded()
+        if (!openedChooser) {
+            Toast.makeText(this, R.string.must_open_chat, Toast.LENGTH_LONG).show()
+        }
     }
 
     /**
-     * Samsung Dual Messenger and Xiaomi/Redmi Dual Apps share the same package name.
-     * Auto-launching would open the primary WhatsApp and break the dual instance,
-     * so on those devices we never force-open WhatsApp.
+     * @return true when a WhatsApp picker/app was shown.
+     * If the user is already inside WhatsApp or dual WhatsApp, do nothing.
      */
-    private fun openWhatsAppIfNeeded() {
+    private fun openWhatsAppIfNeeded(): Boolean {
         val service = BulkAccessibilityService.instance
-        if (service != null && WhatsAppWindows.isAnyChatVisible(service)) {
-            return
-        }
-
-        // Dual-app OEMs: user must open dual WhatsApp manually.
-        if (DualAppSupport.shouldAvoidAutoLaunch(this)) {
-            return
+        if (service != null && WhatsAppWindows.isAnyWhatsAppVisible(service)) {
+            return false
         }
 
         val apps = WhatsAppApps.installed(this)
-        when {
-            apps.isEmpty() -> {
-                Toast.makeText(this, R.string.whatsapp_not_found, Toast.LENGTH_LONG).show()
-            }
-            apps.size == 1 -> startActivity(apps.first().launchIntent)
-            else -> {
-                val primary = apps.first().launchIntent
-                val chooser = Intent.createChooser(primary, getString(R.string.choose_whatsapp)).apply {
-                    putExtra(
-                        Intent.EXTRA_INITIAL_INTENTS,
-                        apps.drop(1).map { it.launchIntent }.toTypedArray(),
-                    )
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(chooser)
-            }
+        if (apps.isEmpty()) {
+            Toast.makeText(this, R.string.whatsapp_not_found, Toast.LENGTH_LONG).show()
+            return false
         }
+
+        // Always offer selection when not already inside WhatsApp.
+        val primary = apps.first().launchIntent
+        val chooser = Intent.createChooser(primary, getString(R.string.choose_whatsapp)).apply {
+            if (apps.size > 1) {
+                putExtra(
+                    Intent.EXTRA_INITIAL_INTENTS,
+                    apps.drop(1).map { it.launchIntent }.toTypedArray(),
+                )
+            }
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(chooser)
+        if (DualAppSupport.shouldAvoidAutoLaunch(this)) {
+            Toast.makeText(this, DualAppSupport.guidanceMessage(this), Toast.LENGTH_LONG).show()
+        }
+        return true
     }
 
     private fun renderPanelState(state: BulkState, sent: Int, total: Int, success: String?) {
@@ -598,6 +599,7 @@ class FloatingBubbleService : Service() {
         private const val NOTIFICATION_ID = 4202
         const val ACTION_STOP_SERVICE = "com.whatsappbot.bulk.STOP_BUBBLE"
         const val ACTION_SHOW_PANEL = "com.whatsappbot.bulk.SHOW_PANEL"
+        private const val DEFAULT_MPM = 100
 
         fun start(context: Context) {
             val intent = Intent(context, FloatingBubbleService::class.java)

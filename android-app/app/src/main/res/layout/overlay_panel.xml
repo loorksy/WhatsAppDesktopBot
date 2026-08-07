@@ -98,7 +98,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="10"
+        android:text="100"
         android:textColor="@color/teal_700"
         android:textSize="20sp"
         android:textStyle="bold" />
@@ -108,7 +108,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:max="999"
-        android:progress="9" />
+        android:progress="99" />
 
     <LinearLayout
         android:layout_width="match_parent"

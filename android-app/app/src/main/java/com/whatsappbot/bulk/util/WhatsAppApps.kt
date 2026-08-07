@@ -22,9 +22,7 @@ object WhatsAppApps {
             if (!WhatsAppNodes.isSupportedPackage(pkg)) continue
             val intent = pm.getLaunchIntentForPackage(pkg) ?: continue
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val label = runCatching {
-                info.loadLabel(pm)?.toString()
-            }.getOrNull().orEmpty().ifBlank { pkg }
+            val label = friendlyLabel(pkg, info.loadLabel(pm)?.toString())
             apps.putIfAbsent(pkg, WhatsAppApp(pkg, label, intent))
         }
 
@@ -33,12 +31,31 @@ object WhatsAppApps {
             if (apps.containsKey(pkg)) continue
             val intent = pm.getLaunchIntentForPackage(pkg) ?: continue
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val label = runCatching {
+            val raw = runCatching {
                 pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
-            }.getOrDefault(pkg)
-            apps[pkg] = WhatsAppApp(pkg, label, intent)
+            }.getOrNull()
+            apps[pkg] = WhatsAppApp(pkg, friendlyLabel(pkg, raw), intent)
         }
 
-        return apps.values.toList().sortedBy { it.label.lowercase() }
+        return apps.values.toList().sortedBy { sortKey(it.packageName) }
+    }
+
+    private fun friendlyLabel(packageName: String, raw: String?): String {
+        val base = raw?.trim().orEmpty()
+        return when {
+            packageName == "com.whatsapp.w4b" ->
+                if (base.isBlank() || base.equals("WhatsApp", true)) "WhatsApp Business" else base
+            packageName == "com.whatsapp" ->
+                if (base.isBlank()) "WhatsApp" else base
+            packageName.contains("whatsapp", ignoreCase = true) ->
+                base.ifBlank { packageName }
+            else -> base.ifBlank { packageName }
+        }
+    }
+
+    private fun sortKey(packageName: String): Int = when (packageName) {
+        "com.whatsapp" -> 0
+        "com.whatsapp.w4b" -> 1
+        else -> 2
     }
 }
