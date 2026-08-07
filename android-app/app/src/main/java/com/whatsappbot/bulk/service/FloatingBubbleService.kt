@@ -12,6 +12,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Gravity
@@ -33,6 +35,8 @@ import com.whatsappbot.bulk.ui.HomeActivity
 import com.whatsappbot.bulk.util.BulkSession
 import com.whatsappbot.bulk.util.BulkState
 import com.whatsappbot.bulk.util.MessageParser
+import com.whatsappbot.bulk.util.WhatsAppApps
+import com.whatsappbot.bulk.util.WhatsAppNodes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -358,6 +362,14 @@ class FloatingBubbleService : Service() {
         setMpm(10)
 
         panelSend?.setOnClickListener { startSending() }
+        panelInput?.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                updateMessageCountPreview()
+            }
+        })
+        updateMessageCountPreview()
 
         view.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_OUTSIDE) {
@@ -377,6 +389,20 @@ class FloatingBubbleService : Service() {
         val current = BulkSession.ui.value
         renderPanelState(current.state, current.sent, current.total, current.successMessage)
         panelInput?.requestFocus()
+    }
+
+    private fun parseMessages(raw: String): List<String> {
+        var messages = MessageParser.parse(raw, MessageParser.Mode.PARAGRAPH)
+        if (messages.isEmpty()) {
+            messages = MessageParser.parse(raw, MessageParser.Mode.LINES)
+        }
+        return messages
+    }
+
+    private fun updateMessageCountPreview() {
+        val count = parseMessages(panelInput?.text?.toString().orEmpty()).size
+        panelCount?.visibility = View.VISIBLE
+        panelCount?.text = getString(R.string.message_count, count)
     }
 
     private fun hidePanel() {
@@ -419,11 +445,8 @@ class FloatingBubbleService : Service() {
             Toast.makeText(this, R.string.accessibility_required, Toast.LENGTH_LONG).show()
             return
         }
-        val raw = panelInput?.text?.toString().orEmpty()
-        var messages = MessageParser.parse(raw, MessageParser.Mode.PARAGRAPH)
-        if (messages.isEmpty()) {
-            messages = MessageParser.parse(raw, MessageParser.Mode.LINES)
-        }
+        val messages = parseMessages(panelInput?.text?.toString().orEmpty())
+        updateMessageCountPreview()
         if (messages.isEmpty()) {
             Toast.makeText(this, R.string.must_paste, Toast.LENGTH_SHORT).show()
             return
@@ -447,16 +470,37 @@ class FloatingBubbleService : Service() {
         BulkSession.prepare(messages, mpmValue())
         BulkAccessibilityService.instance?.startLoop()
         hidePanel()
-        openWhatsApp()
+        openWhatsAppIfNeeded()
         Toast.makeText(this, R.string.must_open_chat, Toast.LENGTH_LONG).show()
     }
 
-    private fun openWhatsApp() {
-        val launch = packageManager.getLaunchIntentForPackage("com.whatsapp")
-            ?: packageManager.getLaunchIntentForPackage("com.whatsapp.w4b")
-        if (launch != null) {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(launch)
+    /**
+     * Do not force-open primary WhatsApp if the user is already inside a chat
+     * (including dual WhatsApp / Business / clones). Otherwise show an app chooser.
+     */
+    private fun openWhatsAppIfNeeded() {
+        val root = BulkAccessibilityService.instance?.rootInActiveWindow
+        val alreadyInChat = WhatsAppNodes.isInChat(root)
+        root?.recycle()
+        if (alreadyInChat) return
+
+        val apps = WhatsAppApps.installed(this)
+        when {
+            apps.isEmpty() -> {
+                Toast.makeText(this, R.string.whatsapp_not_found, Toast.LENGTH_LONG).show()
+            }
+            apps.size == 1 -> startActivity(apps.first().launchIntent)
+            else -> {
+                val primary = apps.first().launchIntent
+                val chooser = Intent.createChooser(primary, getString(R.string.choose_whatsapp)).apply {
+                    putExtra(
+                        Intent.EXTRA_INITIAL_INTENTS,
+                        apps.drop(1).map { it.launchIntent }.toTypedArray(),
+                    )
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(chooser)
+            }
         }
     }
 

@@ -36,8 +36,14 @@ class BulkAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (!BulkSession.isActive() || sendingStep) return
-        val pkg = event?.packageName?.toString() ?: return
-        if (pkg !in WhatsAppNodes.PACKAGES) return
+        val pkg = event?.packageName?.toString()
+        // Accept official WhatsApp, Business, dual apps, and clones.
+        if (pkg != null && !WhatsAppNodes.isSupportedPackage(pkg)) {
+            val root = rootInActiveWindow
+            val inChat = WhatsAppNodes.isInChat(root)
+            root?.recycle()
+            if (!inChat) return
+        }
         if (!loopPosted) {
             scheduleNext(200)
         }
@@ -76,14 +82,9 @@ class BulkAccessibilityService : AccessibilityService() {
         }
 
         val root = rootInActiveWindow
-        if (root == null || root.packageName?.toString() !in WhatsAppNodes.PACKAGES) {
+        if (root == null || !WhatsAppNodes.isWhatsAppWindow(root) || !WhatsAppNodes.isInChat(root)) {
+            root?.recycle()
             BulkSession.markWaitingChat()
-            return
-        }
-
-        if (!WhatsAppNodes.isInChat(root)) {
-            BulkSession.markWaitingChat()
-            root.recycle()
             return
         }
 
