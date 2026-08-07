@@ -8,22 +8,26 @@
     android:padding="20dp"
     android:gravity="center_horizontal">
 
-    <TextView
+    <FrameLayout
         android:layout_width="72dp"
         android:layout_height="72dp"
         android:layout_marginTop="48dp"
-        android:background="@drawable/bg_bubble"
-        android:gravity="center"
-        android:text="✉"
-        android:textColor="@color/white"
-        android:textSize="28sp" />
+        android:background="@drawable/bg_telegram_icon">
+
+        <ImageView
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_plane" />
+    </FrameLayout>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="@string/app_name"
-        android:textColor="@color/teal_700"
+        android:textColor="@color/telegram_blue"
         android:textSize="24sp"
         android:textStyle="bold" />
 
@@ -94,4 +98,14 @@
         android:layout_height="48dp"
         android:layout_marginTop="18dp"
         android:text="@string/logout_license" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="bottom|center_horizontal"
+        android:paddingBottom="8dp"
+        android:text="@string/developed_by"
+        android:textColor="@color/slate_500"
+        android:textSize="13sp" />
 </LinearLayout>

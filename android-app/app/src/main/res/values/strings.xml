@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">أداة الإرسال</string>
+    <string name="developed_by">تم التطوير بواسطة Ahmed isa</string>
     <string name="home_setup_hint">فعّل الأذونات ثم شغّل الأيقونة المنبثقة. التطبيق لا يبقى مفتوحًا — فقط الفقاعة.</string>
     <string name="bulk_title">الإرسال الجماعي</string>
     <string name="bulk_hint">ادخل محادثة واتساب ثم اضغط إرسال</string>

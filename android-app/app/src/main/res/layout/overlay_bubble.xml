@@ -3,14 +3,18 @@
     android:layout_width="56dp"
     android:layout_height="56dp">
 
-    <TextView
+    <FrameLayout
         android:id="@+id/bubbleIcon"
         android:layout_width="56dp"
         android:layout_height="56dp"
         android:background="@drawable/bg_bubble"
-        android:gravity="center"
-        android:text="✉"
-        android:textColor="@color/white"
-        android:textSize="22sp"
-        android:elevation="8dp" />
+        android:elevation="8dp">
+
+        <ImageView
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_plane" />
+    </FrameLayout>
 </FrameLayout>

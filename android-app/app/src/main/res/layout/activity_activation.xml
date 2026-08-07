@@ -12,21 +12,26 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
-        <TextView
+        <FrameLayout
             android:layout_width="72dp"
             android:layout_height="72dp"
             android:layout_marginTop="40dp"
-            android:background="@drawable/bg_bubble"
-            android:gravity="center"
-            android:text="🔑"
-            android:textSize="28sp" />
+            android:background="@drawable/bg_telegram_icon">
+
+            <ImageView
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/app_name"
+                android:src="@drawable/ic_plane" />
+        </FrameLayout>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="@string/activation_title"
-            android:textColor="@color/teal_700"
+            android:textColor="@color/telegram_blue"
             android:textSize="24sp"
             android:textStyle="bold" />
 
@@ -70,8 +75,17 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="18dp"
-            android:backgroundTint="@color/teal_700"
+            android:backgroundTint="@color/telegram_blue"
             android:text="@string/activate"
             android:textColor="@color/white" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:gravity="center"
+            android:text="@string/developed_by"
+            android:textColor="@color/slate_500"
+            android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>
