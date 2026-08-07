@@ -264,9 +264,10 @@ class WhatsAppBot extends EventEmitter {
   applySafetyLimits(settings = {}) {
     const rpm = this.clampNumber(settings.rpm, 1, 20, 20);
     const cooldownSeconds = this.clampNumber(settings.cooldownSeconds, 3, 3600, 3);
-    const bulkRpm = this.clampNumber(settings.bulkMessagesPerMinute ?? settings.bulkRpm, 1, 10, 10);
-    const requestedBulkDelay = this.clampNumber(settings.bulkDelaySeconds, 6, 3600, 6);
-    const bulkDelaySeconds = Math.max(requestedBulkDelay, 60 / bulkRpm);
+    const bulkRpm = this.clampNumber(settings.bulkMessagesPerMinute ?? settings.bulkRpm, 1, 10000, 10);
+    const minDelayFromRpm = 60 / bulkRpm;
+    const requestedBulkDelay = this.clampNumber(settings.bulkDelaySeconds, minDelayFromRpm, 3600, minDelayFromRpm);
+    const bulkDelaySeconds = Math.max(requestedBulkDelay, minDelayFromRpm);
 
     return {
       ...settings,
@@ -770,7 +771,8 @@ class WhatsAppBot extends EventEmitter {
   async ensureRateLimit(rpmOverride) {
     const now = Date.now();
     const requestedRpm = rpmOverride || this.settings.rpm || 20;
-    const rpmLimit = this.clampNumber(requestedRpm, 1, rpmOverride ? 10 : 20, rpmOverride ? 10 : 20);
+    const maxRpm = rpmOverride ? 10000 : 20;
+    const rpmLimit = this.clampNumber(requestedRpm, 1, maxRpm, rpmOverride ? 10 : 20);
     this.rateWindow = this.rateWindow.filter((t) => now - t < 60000);
     while (this.rateWindow.length >= rpmLimit) {
       await new Promise((res) => setTimeout(res, 1000));
@@ -826,6 +828,42 @@ class WhatsAppBot extends EventEmitter {
     }
     await store.write('groups.json', this.selectedGroups);
     return groups;
+  }
+
+  chatDisplayName(chat) {
+    if (!chat) return 'محادثة';
+    return (
+      chat.name ||
+      chat.formattedTitle ||
+      chat.pushname ||
+      (chat.id && (chat.id.user || chat.id._serialized)) ||
+      'محادثة'
+    );
+  }
+
+  async refreshChats() {
+    this.assertClientReady('refresh chats');
+    const chats = await this.client.getChats();
+    const mapped = [];
+    for (const c of chats) {
+      if (!c || !c.id || !c.id._serialized || c.isStatus) continue;
+      const id = c.id._serialized;
+      const isGroup = !!c.isGroup;
+      const name = this.chatDisplayName(c);
+      if (isGroup) {
+        await this.recordGroupMeta(id, name);
+      }
+      mapped.push({
+        id,
+        name,
+        isGroup,
+        selected: isGroup ? this.selectedGroups.includes(id) : false,
+        unreadCount: c.unreadCount || 0,
+        timestamp: c.timestamp || 0,
+      });
+    }
+    mapped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    return mapped;
   }
 
   async setSelectedGroups(ids) {
@@ -961,9 +999,13 @@ class WhatsAppBot extends EventEmitter {
     if (!groupId || !Array.isArray(messages) || messages.length === 0) {
       throw new Error('Invalid bulk payload');
     }
-    const safeRpm = this.clampNumber(rpm, 1, 10, this.settings?.bulkRpm || 10);
-    const requestedDelay = this.clampNumber(delaySeconds, 6, 3600, this.settings?.bulkDelaySeconds || 6);
-    const safeDelaySeconds = Math.max(requestedDelay, 60 / safeRpm);
+    const safeRpm = this.clampNumber(rpm, 1, 10000, this.settings?.bulkRpm || 10);
+    const minDelay = 60 / safeRpm;
+    const requestedDelay = Number(delaySeconds);
+    const safeDelaySeconds = Math.max(
+      Number.isFinite(requestedDelay) ? requestedDelay : minDelay,
+      minDelay
+    );
     this.bulkState = {
       state: 'running',
       sent: 0,
@@ -1034,9 +1076,13 @@ class WhatsAppBot extends EventEmitter {
         this.emitLog(`Bulk error: ${err.message}`);
       }
 
-      const safeRpm = this.clampNumber(this.bulkState.rpm, 1, 10, 10);
-      const safeDelaySeconds = Math.max(this.clampNumber(this.bulkState.delaySeconds, 6, 3600, 6), 60 / safeRpm);
-      this.bulkTimer = setTimeout(loop, safeDelaySeconds * 1000);
+      const safeRpm = this.clampNumber(this.bulkState.rpm, 1, 10000, 10);
+      const minDelay = 60 / safeRpm;
+      const safeDelaySeconds = Math.max(
+        Number(this.bulkState.delaySeconds) || minDelay,
+        minDelay
+      );
+      this.bulkTimer = setTimeout(loop, Math.max(1, Math.round(safeDelaySeconds * 1000)));
     };
 
     loop();

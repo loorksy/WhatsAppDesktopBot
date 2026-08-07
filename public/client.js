@@ -187,6 +187,9 @@ function renderStatus(status) {
   renderForwardState(statusState.forward || {});
   renderCheckpoints(statusState.lastChecked || {});
   if (statusState.bulk) renderBulkStatus(statusState.bulk);
+  if (isBulk && statusState.connected && statusState.linkState === 'ready' && !bulkChatsCache.length) {
+    loadBulkChats({ silent: true });
+  }
 }
 
 function updateHeaderBadge() {
@@ -865,19 +868,31 @@ function renderBulkStatus(state) {
 async function initBulk() {
   const perms = currentUser?.permissions || {};
   if (!perms.can_send_messages) {
-    const shell = document.querySelector('.page-wrap');
-    if (shell) shell.innerHTML = '<p class="muted">لا تملك صلاحية الإرسال.</p>';
+    const shell = document.querySelector('.bulk-app-main') || document.querySelector('.page-wrap');
+    if (shell) shell.innerHTML = '<p class="muted" style="padding:24px">لا تملك صلاحية الإرسال.</p>';
     return;
   }
+  if (isBulkSendOnlyUser()) {
+    document.body.classList.add('bulk-send-only');
+  }
+  showBulkListView();
   bindBulk();
   bindBulkMpmControls();
-  if (perms.can_manage_lists || perms.can_send_messages || perms.can_manage_forwarding) {
-    await loadForwardGroups();
-    await loadBulkGroups();
-  }
+  await loadBulkChats({ silent: true });
   await loadSettings();
   const bulkStatus = await api.request('/api/bulk/status');
-  if (!bulkStatus.error) renderBulkStatus(bulkStatus);
+  if (!bulkStatus.error) {
+    renderBulkStatus(bulkStatus);
+    if (bulkStatus.state === 'running' && bulkStatus.groupId) {
+      const chat =
+        bulkChatsCache.find((c) => c.id === bulkStatus.groupId) || {
+          id: bulkStatus.groupId,
+          name: bulkStatus.groupId,
+          isGroup: String(bulkStatus.groupId).endsWith('@g.us'),
+        };
+      showBulkFormView(chat);
+    }
+  }
 }
 
 async function initAdmin() {
@@ -1040,18 +1055,7 @@ function bindAdmin() {
 }
 
 async function loadBulkGroups() {
-  const groups = await api.request('/api/groups');
-  if (handleApiError(groups, 'fetch groups')) return;
-  const select = document.getElementById('bulk-group');
-  if (!select) return;
-  select.innerHTML = '';
-  groups.forEach((g) => {
-    const option = document.createElement('option');
-    option.value = g.id;
-    option.textContent = g.name;
-    select.appendChild(option);
-  });
-  updateForwardTargetOptions(groups);
+  return loadBulkChats({ silent: true });
 }
 
 function parseNotifications(rawText, mode) {
@@ -1064,11 +1068,151 @@ function parseNotifications(rawText, mode) {
     }
     return blocks;
   }
+  if (mode === 'lines') {
+    return rawText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+  }
   const chunks = rawText
     .split(/\n\s*\n+/)
     .map((c) => c.trim())
     .filter(Boolean);
   return chunks;
+}
+
+let bulkChatsCache = [];
+let selectedBulkChat = null;
+
+function isBulkSendOnlyUser(user = currentUser) {
+  const perms = user?.permissions || {};
+  return (
+    !!perms.can_send_messages &&
+    !perms.is_admin &&
+    !perms.can_control_bot &&
+    !perms.can_manage_settings &&
+    !perms.can_scan_backlog
+  );
+}
+
+function showBulkListView() {
+  selectedBulkChat = null;
+  document.getElementById('bulk-list-view')?.classList.remove('hidden');
+  document.getElementById('bulk-form-view')?.classList.add('hidden');
+  document.getElementById('bulk-back-btn')?.classList.add('hidden');
+  document.getElementById('menuToggle')?.classList.remove('hidden');
+  const title = document.getElementById('bulk-header-title');
+  if (title) title.textContent = 'المحادثات';
+  const groupSelect = document.getElementById('bulk-group');
+  if (groupSelect) groupSelect.value = '';
+}
+
+function showBulkFormView(chat) {
+  if (!chat?.id) {
+    showToast('يجب دخول محادثة أولاً');
+    return;
+  }
+  selectedBulkChat = chat;
+  const groupSelect = document.getElementById('bulk-group');
+  if (groupSelect) {
+    if (![...groupSelect.options].some((o) => o.value === chat.id)) {
+      const option = document.createElement('option');
+      option.value = chat.id;
+      option.textContent = chat.name;
+      groupSelect.appendChild(option);
+    }
+    groupSelect.value = chat.id;
+  }
+  const nameEl = document.getElementById('bulk-selected-name');
+  if (nameEl) nameEl.textContent = chat.name || chat.id;
+  const avatar = document.getElementById('bulk-selected-avatar');
+  if (avatar) {
+    avatar.innerHTML = chat.isGroup ? '<i class="fas fa-users"></i>' : '<i class="fas fa-user"></i>';
+  }
+  document.getElementById('bulk-list-view')?.classList.add('hidden');
+  document.getElementById('bulk-form-view')?.classList.remove('hidden');
+  document.getElementById('bulk-back-btn')?.classList.remove('hidden');
+  document.getElementById('menuToggle')?.classList.add('hidden');
+  const title = document.getElementById('bulk-header-title');
+  if (title) title.textContent = 'الإرسال الجماعي';
+}
+
+function renderBulkChatList(chats = bulkChatsCache) {
+  const list = document.getElementById('bulk-chat-list');
+  const empty = document.getElementById('bulk-chat-empty');
+  if (!list) return;
+  const query = (document.getElementById('bulk-chat-search')?.value || '').trim().toLowerCase();
+  const filtered = (chats || []).filter((c) => {
+    if (!query) return true;
+    return (c.name || '').toLowerCase().includes(query) || (c.id || '').toLowerCase().includes(query);
+  });
+  list.innerHTML = '';
+  if (!filtered.length) {
+    empty?.classList.remove('hidden');
+    const emptyText = empty?.querySelector('p');
+    const linkBtn = document.getElementById('bulk-link-open');
+    if (query) {
+      if (emptyText) emptyText.textContent = 'لا توجد محادثة مطابقة للبحث';
+      linkBtn?.classList.add('hidden');
+    } else if (statusState.connected && statusState.linkState === 'ready') {
+      if (emptyText) emptyText.textContent = 'لا توجد محادثات — اضغط تحديث بعد فتح المحادثة في واتساب';
+      linkBtn?.classList.add('hidden');
+    } else {
+      if (emptyText) emptyText.textContent = 'اربط واتساب ثم حدّث القائمة لعرض المحادثات';
+      linkBtn?.classList.remove('hidden');
+    }
+    return;
+  }
+  empty?.classList.add('hidden');
+  filtered.forEach((chat) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bulk-chat-item';
+    btn.setAttribute('role', 'listitem');
+    btn.dataset.chatId = chat.id;
+    const kind = chat.isGroup ? 'مجموعة' : 'محادثة';
+    btn.innerHTML = `
+      <span class="bulk-chat-avatar ${chat.isGroup ? '' : 'dm'}">
+        <i class="fas ${chat.isGroup ? 'fa-users' : 'fa-user'}"></i>
+      </span>
+      <span class="bulk-chat-meta">
+        <span class="bulk-chat-name"></span>
+        <span class="bulk-chat-sub">${kind}${chat.unreadCount ? ` · ${chat.unreadCount} غير مقروء` : ''}</span>
+      </span>
+      <span class="bulk-chat-chevron"><i class="fas fa-chevron-left"></i></span>
+    `;
+    btn.querySelector('.bulk-chat-name').textContent = chat.name || chat.id;
+    btn.addEventListener('click', () => showBulkFormView(chat));
+    list.appendChild(btn);
+  });
+}
+
+async function loadBulkChats({ silent = false } = {}) {
+  const refreshBtn = document.getElementById('bulk-refresh-chats');
+  refreshBtn?.classList.add('spinning');
+  const chats = await api.request('/api/chats');
+  refreshBtn?.classList.remove('spinning');
+  if (chats.error === 'WA_NOT_READY') {
+    bulkChatsCache = [];
+    renderBulkChatList([]);
+    document.getElementById('bulk-chat-empty')?.classList.remove('hidden');
+    if (!silent) showToast('يجب ربط واتساب أولاً');
+    return [];
+  }
+  if (handleApiError(chats, 'fetch chats')) return [];
+  bulkChatsCache = Array.isArray(chats) ? chats : [];
+  const select = document.getElementById('bulk-group');
+  if (select) {
+    select.innerHTML = '';
+    bulkChatsCache.forEach((c) => {
+      const option = document.createElement('option');
+      option.value = c.id;
+      option.textContent = c.name;
+      select.appendChild(option);
+    });
+  }
+  renderBulkChatList(bulkChatsCache);
+  return bulkChatsCache;
 }
 
 function analyzeNotifications() {
@@ -1096,34 +1240,64 @@ function bindBulkMpmControls() {
 }
 
 function bindBulk() {
-  document.getElementById('bulk-analyze').addEventListener('click', analyzeNotifications);
+  document.getElementById('bulk-analyze')?.addEventListener('click', analyzeNotifications);
+  document.getElementById('bulk-messages')?.addEventListener('input', () => {
+    if (!document.getElementById('bulk-analysis')?.classList.contains('hidden')) {
+      analyzeNotifications();
+    }
+  });
+  document.getElementById('bulk-parse-mode')?.addEventListener('change', () => {
+    if (!document.getElementById('bulk-analysis')?.classList.contains('hidden')) {
+      analyzeNotifications();
+    }
+  });
+  document.getElementById('bulk-chat-search')?.addEventListener('input', () => renderBulkChatList(bulkChatsCache));
+  document.getElementById('bulk-refresh-chats')?.addEventListener('click', () => loadBulkChats());
+  document.getElementById('bulk-back-btn')?.addEventListener('click', showBulkListView);
+  document.getElementById('bulk-link-open')?.addEventListener('click', () => {
+    openLinkModal();
+  });
 
   const pause = () => api.request('/api/bulk/pause', { method: 'POST' });
   const resume = () => api.request('/api/bulk/resume', { method: 'POST' });
   const stop = () => api.request('/api/bulk/stop', { method: 'POST' });
 
-  document.getElementById('bulk-start').addEventListener('click', async () => {
+  document.getElementById('bulk-start')?.addEventListener('click', async () => {
+    const groupId = selectedBulkChat?.id || document.getElementById('bulk-group')?.value;
+    if (!groupId) {
+      showToast('يجب دخول المحادثة أولاً');
+      showBulkListView();
+      return;
+    }
+    if (!statusState.connected && statusState.linkState !== 'ready') {
+      showToast('واتساب غير متصل — اربط الحساب أولاً');
+      return;
+    }
     const mode = document.getElementById('bulk-parse-mode').value;
     const messages = parseNotifications(document.getElementById('bulk-messages').value, mode);
     if (!messages.length) {
-      showToast('لا توجد إشعارات للإرسال');
+      showToast('الصق الرسائل أولاً');
       return;
     }
-    const groupId = document.getElementById('bulk-group').value;
     const delaySeconds = getBulkDelaySeconds();
     const rpm = getBulkRpm();
     const res = await api.request('/api/bulk/start', {
       method: 'POST',
       body: JSON.stringify({ groupId, messages, delaySeconds, rpm }),
     });
+    if (res.error === 'WA_NOT_READY') {
+      showToast('واتساب غير جاهز — ادخل المحادثة بعد الربط');
+      return;
+    }
     if (!handleApiError(res, 'bulk start')) {
-      renderBulkStatus({ state: 'running', sent: 0, total: messages.length, paused: false });
+      showToast(`بدء الإرسال إلى ${selectedBulkChat?.name || 'المحادثة'}`);
+      renderBulkStatus({ state: 'running', sent: 0, total: messages.length, paused: false, groupId });
     }
   });
 
-  document.getElementById('bulk-pause').addEventListener('click', pause);
-  document.getElementById('bulk-resume').addEventListener('click', resume);
-  document.getElementById('bulk-stop').addEventListener('click', stop);
+  document.getElementById('bulk-pause')?.addEventListener('click', pause);
+  document.getElementById('bulk-resume')?.addEventListener('click', resume);
+  document.getElementById('bulk-stop')?.addEventListener('click', stop);
   document.getElementById('bulk-modal-pause')?.addEventListener('click', pause);
   document.getElementById('bulk-modal-resume')?.addEventListener('click', resume);
   document.getElementById('bulk-modal-stop')?.addEventListener('click', stop);

@@ -158,7 +158,14 @@ app.post('/login', async (req, res) => {
   }
   const token = signToken(user);
   res.cookie(TOKEN_NAME, token, { httpOnly: true, sameSite: 'lax' });
-  return res.redirect('/');
+  const perms = mergePermissions(user.permissions || {}, user.email === MASTER_EMAIL);
+  const sendOnly =
+    !!perms.can_send_messages &&
+    !perms.is_admin &&
+    !perms.can_control_bot &&
+    !perms.can_manage_settings &&
+    !perms.can_scan_backlog;
+  return res.redirect(sendOnly ? '/bulk.html' : '/');
 });
 
 function handleWaNotReady(res, err) {
@@ -254,6 +261,16 @@ app.get('/api/groups', requireAnyPermission(['can_manage_lists', 'can_send_messa
   try {
     const groups = await bot.refreshGroups();
     res.json(groups);
+  } catch (err) {
+    if (handleWaNotReady(res, err)) return;
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/chats', requireAnyPermission(['can_send_messages', 'can_manage_lists', 'can_manage_forwarding']), async (req, res) => {
+  try {
+    const chats = await bot.refreshChats();
+    res.json(chats);
   } catch (err) {
     if (handleWaNotReady(res, err)) return;
     res.status(500).json({ error: err.message });

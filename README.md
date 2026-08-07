@@ -1,6 +1,13 @@
 # WhatsApp Desktop Bot
 
-Production-ready WhatsApp bot with a web dashboard, message queueing, backlog processing, and bulk sending.
+Production-ready WhatsApp bot with a web dashboard, message queueing, backlog processing, and a mobile bulk-send app.
+
+## Mobile bulk send
+Open `/bulk.html` on a phone after login:
+1. The app shows a conversation list.
+2. Tap a conversation to open the bulk-send form.
+3. Paste messages, choose messages-per-minute, then tap Send.
+Sending requires WhatsApp to be linked and a conversation to be selected first. Users with send-only permission are redirected to this screen after login.
 
 ## Requirements
 - Node.js 18+
