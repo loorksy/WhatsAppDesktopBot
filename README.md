@@ -2,12 +2,20 @@
 
 Production-ready WhatsApp bot with a web dashboard, message queueing, backlog processing, and a mobile bulk-send app.
 
-## Mobile bulk send
-Open `/bulk.html` on a phone after login:
-1. The app shows a conversation list.
-2. Tap a conversation to open the bulk-send form.
-3. Paste messages, choose messages-per-minute, then tap Send.
-Sending requires WhatsApp to be linked and a conversation to be selected first. Users with send-only permission are redirected to this screen after login.
+## Android APK (الإرسال الجماعي)
+Native Android app lives in `android-app/`.
+
+Build:
+```bash
+export ANDROID_HOME=$HOME/android-sdk   # or your SDK path
+cd android-app
+./gradlew assembleDebug
+```
+
+Install `android-app/app/build/outputs/apk/debug/app-debug.apk` on the phone, enter your bot server URL, log in, open a conversation, paste messages, set messages/minute, then send.
+
+## Web bulk send
+Open `/bulk.html` after login for the same flow in a browser. Users with send-only permission are redirected there after login.
 
 ## Requirements
 - Node.js 18+
