@@ -52,4 +52,9 @@
     <string name="activation_device">هذا الرمز مستخدم على جهاز آخر</string>
     <string name="activation_network">تعذر الاتصال بالسيرفر</string>
     <string name="logout_license">إلغاء التفعيل</string>
+    <string name="shortcut_bubble_short">تشغيل الفقاعة</string>
+    <string name="shortcut_bubble_long">تشغيل الأيقونة المنبثقة مباشرة</string>
+    <string name="add_shortcut">إضافة اختصار للشاشة</string>
+    <string name="shortcut_pin_requested">أكد إضافة الاختصار على الشاشة الرئيسية</string>
+    <string name="shortcut_not_supported">الجهاز لا يدعم إضافة الاختصار تلقائياً — استخدم أيقونة «تشغيل الفقاعة»</string>
 </resources>

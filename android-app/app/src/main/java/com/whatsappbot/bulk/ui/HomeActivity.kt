@@ -21,6 +21,7 @@ import com.whatsappbot.bulk.data.LicensePrefs
 import com.whatsappbot.bulk.databinding.ActivityHomeBinding
 import com.whatsappbot.bulk.service.BulkAccessibilityService
 import com.whatsappbot.bulk.service.FloatingBubbleService
+import com.whatsappbot.bulk.util.ShortcutHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,6 +46,9 @@ class HomeActivity : AppCompatActivity() {
         }
         binding.btnOverlay.setOnClickListener { requestOverlayPermission() }
         binding.btnStartBubble.setOnClickListener { startBubbleAndMinimize() }
+        binding.btnAddShortcut.setOnClickListener {
+            ShortcutHelper.requestPinShortcut(this)
+        }
         binding.btnLogoutLicense.setOnClickListener {
             prefs.clearActivation()
             FloatingBubbleService.stop(this)
@@ -52,6 +56,7 @@ class HomeActivity : AppCompatActivity() {
         }
 
         requestNotificationPermission()
+        ShortcutHelper.ensureDynamicShortcut(this)
         verifyLicense()
     }
 
@@ -139,6 +144,7 @@ class HomeActivity : AppCompatActivity() {
                 return@launch
             }
             FloatingBubbleService.start(this@HomeActivity)
+            ShortcutHelper.ensureDynamicShortcut(this@HomeActivity)
             Toast.makeText(this@HomeActivity, R.string.bubble_started, Toast.LENGTH_SHORT).show()
             moveTaskToBack(true)
         }
