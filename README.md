@@ -2,20 +2,16 @@
 
 Production-ready WhatsApp bot with a web dashboard, message queueing, backlog processing, and a mobile bulk-send app.
 
-## Android APK (الإرسال الجماعي)
-Native Android app lives in `android-app/`.
+## Android APK (أداة إرسال مستقلة)
+Standalone Android app in `android-app/` — **no server**. Uses Accessibility to send pasted messages into an open WhatsApp chat.
 
-Build:
 ```bash
-export ANDROID_HOME=$HOME/android-sdk   # or your SDK path
+export ANDROID_HOME=$HOME/android-sdk
 cd android-app
 ./gradlew assembleDebug
 ```
 
-Install `android-app/app/build/outputs/apk/debug/app-debug.apk` on the phone, enter your bot server URL, log in, open a conversation, paste messages, set messages/minute, then send.
-
-## Web bulk send
-Open `/bulk.html` after login for the same flow in a browser. Users with send-only permission are redirected there after login.
+Install `app/build/outputs/apk/debug/app-debug.apk`, enable Accessibility for the app, open a WhatsApp conversation, then start sending.
 
 ## Requirements
 - Node.js 18+

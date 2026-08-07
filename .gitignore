@@ -1,16 +1,22 @@
-
-android-app/**/build/
-android-app/.gradle/
-android-app/local.properties
-data/sessions/
-.DS_Store
-.env
-# Env files
-*.log
-logs/
-# Logs
 node_modules/
-npm-debug.log
 sessions/
+data/sessions/
 .wwebjs_cache/
 *.zip
+npm-debug.log
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Env files
+.env
+
+# Android
+android-app/.gradle/
+android-app/**/build/
+android-app/local.properties
+android-app/.idea/
+*.apk
+*.ap_
