@@ -1,15 +1,23 @@
 package com.whatsappbot.bulk.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.ViewGroup
+import android.provider.Settings
+import android.text.TextUtils
+import android.view.View
+import android.view.accessibility.AccessibilityManager
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.whatsappbot.bulk.R
 import com.whatsappbot.bulk.databinding.ActivityHomeBinding
-import com.whatsappbot.bulk.databinding.ItemToolBinding
+import com.whatsappbot.bulk.service.BulkAccessibilityService
+import com.whatsappbot.bulk.service.FloatingBubbleService
 
 class HomeActivity : AppCompatActivity() {
     private lateinit var binding: ActivityHomeBinding
@@ -19,45 +27,95 @@ class HomeActivity : AppCompatActivity() {
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val tools = listOf(
-            ToolItem(
-                title = getString(R.string.tool_bulk_title),
-                subtitle = getString(R.string.tool_bulk_sub),
-                icon = "✉",
-            ) {
-                startActivity(Intent(this, BulkFormActivity::class.java))
-            }
-        )
+        binding.btnAccessibility.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+        binding.btnOverlay.setOnClickListener { requestOverlayPermission() }
+        binding.btnStartBubble.setOnClickListener { startBubbleAndMinimize() }
 
-        binding.recyclerTools.layoutManager = LinearLayoutManager(this)
-        binding.recyclerTools.adapter = ToolAdapter(tools)
+        requestNotificationPermission()
     }
 
-    data class ToolItem(
-        val title: String,
-        val subtitle: String,
-        val icon: String,
-        val onClick: () -> Unit,
-    )
+    override fun onResume() {
+        super.onResume()
+        refreshStatus()
+    }
 
-    private class ToolAdapter(
-        private val items: List<ToolItem>,
-    ) : RecyclerView.Adapter<ToolAdapter.VH>() {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val binding = ItemToolBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            return VH(binding)
+    private fun refreshStatus() {
+        val accessOn = isAccessibilityEnabled()
+        binding.textAccessStatus.text = if (accessOn) {
+            getString(R.string.accessibility_on)
+        } else {
+            getString(R.string.accessibility_off)
+        }
+        binding.btnAccessibility.visibility = if (accessOn) View.GONE else View.VISIBLE
+
+        val overlayOn = Settings.canDrawOverlays(this)
+        binding.textOverlayStatus.text = if (overlayOn) {
+            getString(R.string.overlay_on)
+        } else {
+            getString(R.string.overlay_off)
+        }
+        binding.btnOverlay.visibility = if (overlayOn) View.GONE else View.VISIBLE
+    }
+
+    private fun startBubbleAndMinimize() {
+        if (!isAccessibilityEnabled()) {
+            Toast.makeText(this, R.string.accessibility_required, Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            return
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, R.string.overlay_required, Toast.LENGTH_LONG).show()
+            requestOverlayPermission()
+            return
         }
 
-        override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(items[position])
-        override fun getItemCount(): Int = items.size
+        FloatingBubbleService.start(this)
+        Toast.makeText(this, R.string.bubble_started, Toast.LENGTH_SHORT).show()
+        // Leave the app UI; keep only the floating bubble.
+        moveTaskToBack(true)
+    }
 
-        class VH(private val binding: ItemToolBinding) : RecyclerView.ViewHolder(binding.root) {
-            fun bind(item: ToolItem) {
-                binding.icon.text = item.icon
-                binding.textTitle.text = item.title
-                binding.textSub.text = item.subtitle
-                binding.root.setOnClickListener { item.onClick() }
+    private fun requestOverlayPermission() {
+        if (Settings.canDrawOverlays(this)) return
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName"),
+        )
+        startActivity(intent)
+    }
+
+    private fun isAccessibilityEnabled(): Boolean {
+        if (BulkAccessibilityService.isEnabled()) return true
+        val am = getSystemService(ACCESSIBILITY_SERVICE) as AccessibilityManager
+        if (!am.isEnabled) return false
+        val expected = "$packageName/${BulkAccessibilityService::class.java.canonicalName}"
+        return try {
+            val enabled = Settings.Secure.getString(
+                contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            ) ?: return false
+            val splitter = TextUtils.SimpleStringSplitter(':')
+            splitter.setString(enabled)
+            while (splitter.hasNext()) {
+                if (splitter.next().equals(expected, ignoreCase = true)) return true
             }
+            false
+        } catch (_: Exception) {
+            false
         }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            == PackageManager.PERMISSION_GRANTED
+        ) return
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            1001,
+        )
     }
 }

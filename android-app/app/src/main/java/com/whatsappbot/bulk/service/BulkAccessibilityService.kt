@@ -71,7 +71,7 @@ class BulkAccessibilityService : AccessibilityService() {
 
     private fun tick() {
         val state = BulkSession.ui.value.state
-        if (state == BulkState.PAUSED || state == BulkState.IDLE || state == BulkState.DONE || state == BulkState.STOPPED) {
+        if (state == BulkState.IDLE || state == BulkState.DONE || state == BulkState.STOPPED) {
             return
         }
 
@@ -128,7 +128,6 @@ class BulkAccessibilityService : AccessibilityService() {
         if (clicked) {
             BulkSession.onMessageSent()
             if (!BulkSession.isActive()) {
-                BulkForegroundService.stop(this)
                 return
             }
             scheduleNext(BulkSession.delayMs())

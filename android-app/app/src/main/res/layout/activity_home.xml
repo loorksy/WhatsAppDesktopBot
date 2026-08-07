@@ -4,30 +4,86 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/slate_100">
+    android:background="@color/slate_100"
+    android:padding="20dp"
+    android:gravity="center_horizontal">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/teal_700"
-        app:title="@string/home_title"
-        app:titleTextColor="@color/white" />
+    <TextView
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginTop="48dp"
+        android:background="@drawable/bg_bubble"
+        android:gravity="center"
+        android:text="✉"
+        android:textColor="@color/white"
+        android:textSize="28sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/app_name"
+        android:textColor="@color/teal_700"
+        android:textSize="24sp"
+        android:textStyle="bold" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="18dp"
-        android:text="@string/home_hint"
-        android:textColor="@color/slate_500"
-        android:textSize="14sp" />
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text="@string/home_setup_hint"
+        android:textColor="@color/slate_500" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerTools"
+    <TextView
+        android:id="@+id/textAccessStatus"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"
-        android:padding="12dp" />
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/bg_count"
+        android:padding="12dp"
+        android:textColor="@color/indigo"
+        android:textStyle="bold" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAccessibility"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:text="@string/enable_accessibility" />
+
+    <TextView
+        android:id="@+id/textOverlayStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_count"
+        android:padding="12dp"
+        android:textColor="@color/indigo"
+        android:textStyle="bold" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnOverlay"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:text="@string/enable_overlay" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnStartBubble"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginTop="24dp"
+        android:text="@string/start_bubble" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:text="@string/start_bubble_hint"
+        android:textColor="@color/slate_500"
+        android:textSize="13sp" />
 </LinearLayout>

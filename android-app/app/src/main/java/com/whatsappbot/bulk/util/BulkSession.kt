@@ -8,7 +8,6 @@ enum class BulkState {
     IDLE,
     WAITING_CHAT,
     SENDING,
-    PAUSED,
     DONE,
     STOPPED,
 }
@@ -18,9 +17,12 @@ data class BulkUiState(
     val sent: Int = 0,
     val total: Int = 0,
     val messagesPerMinute: Int = 10,
+    val successMessage: String? = null,
 )
 
 object BulkSession {
+    const val MAX_MPM = 1000
+
     private val _ui = MutableStateFlow(BulkUiState())
     val ui: StateFlow<BulkUiState> = _ui.asStateFlow()
 
@@ -38,18 +40,19 @@ object BulkSession {
 
     fun prepare(messages: List<String>, mpm: Int) {
         this.messages = messages.toList()
-        this.messagesPerMinute = mpm.coerceIn(1, 120)
+        this.messagesPerMinute = mpm.coerceIn(1, MAX_MPM)
         this.index = 0
         _ui.value = BulkUiState(
             state = BulkState.WAITING_CHAT,
             sent = 0,
             total = messages.size,
             messagesPerMinute = messagesPerMinute,
+            successMessage = null,
         )
     }
 
     fun markSending() {
-        _ui.value = _ui.value.copy(state = BulkState.SENDING)
+        _ui.value = _ui.value.copy(state = BulkState.SENDING, successMessage = null)
     }
 
     fun markWaitingChat() {
@@ -58,22 +61,14 @@ object BulkSession {
         }
     }
 
-    fun pause() {
-        if (_ui.value.state == BulkState.SENDING || _ui.value.state == BulkState.WAITING_CHAT) {
-            _ui.value = _ui.value.copy(state = BulkState.PAUSED)
-        }
-    }
-
-    fun resume() {
-        if (_ui.value.state == BulkState.PAUSED) {
-            _ui.value = _ui.value.copy(state = BulkState.WAITING_CHAT)
-        }
-    }
-
     fun stop() {
         messages = emptyList()
         index = 0
-        _ui.value = BulkUiState(state = BulkState.STOPPED, messagesPerMinute = messagesPerMinute)
+        _ui.value = BulkUiState(
+            state = BulkState.STOPPED,
+            messagesPerMinute = messagesPerMinute,
+            successMessage = null,
+        )
     }
 
     fun onMessageSent() {
@@ -86,12 +81,23 @@ object BulkSession {
                 sent = total,
                 total = total,
                 messagesPerMinute = messagesPerMinute,
+                successMessage = "تم إرسال جميع الرسائل بنجاح ($total)",
             )
         } else {
             _ui.value = _ui.value.copy(
                 state = BulkState.SENDING,
                 sent = index,
                 total = total,
+                successMessage = null,
+            )
+        }
+    }
+
+    fun clearSuccess() {
+        if (_ui.value.state == BulkState.DONE || _ui.value.state == BulkState.STOPPED) {
+            _ui.value = BulkUiState(
+                state = BulkState.IDLE,
+                messagesPerMinute = messagesPerMinute,
             )
         }
     }
@@ -100,17 +106,11 @@ object BulkSession {
 
     fun isActive(): Boolean {
         val s = _ui.value.state
-        return s == BulkState.WAITING_CHAT || s == BulkState.SENDING || s == BulkState.PAUSED
+        return s == BulkState.WAITING_CHAT || s == BulkState.SENDING
     }
 
     fun delayMs(): Long {
-        val mpm = messagesPerMinute.coerceAtLeast(1)
-        return (60_000L / mpm).coerceAtLeast(500L)
-    }
-
-    fun resetIdle() {
-        if (!isActive()) {
-            _ui.value = BulkUiState(state = BulkState.IDLE, messagesPerMinute = messagesPerMinute)
-        }
+        val mpm = messagesPerMinute.coerceIn(1, MAX_MPM)
+        return (60_000L / mpm).coerceAtLeast(50L)
     }
 }
