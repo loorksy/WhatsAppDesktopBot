@@ -63,6 +63,7 @@ class HomeActivity : AppCompatActivity() {
             return
         }
         refreshStatus()
+        verifyLicense()
     }
 
     private fun verifyLicense() {
@@ -118,9 +119,29 @@ class HomeActivity : AppCompatActivity() {
             return
         }
 
-        FloatingBubbleService.start(this)
-        Toast.makeText(this, R.string.bubble_started, Toast.LENGTH_SHORT).show()
-        moveTaskToBack(true)
+        binding.btnStartBubble.isEnabled = false
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { LicenseClient(prefs).checkStatus() }
+            binding.btnStartBubble.isEnabled = true
+            if (!result.active) {
+                if (result.error == "NETWORK") {
+                    Toast.makeText(this@HomeActivity, R.string.activation_network, Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                prefs.clearActivation()
+                val msg = when (result.error) {
+                    "DISABLED" -> getString(R.string.activation_disabled)
+                    "DEVICE_MISMATCH" -> getString(R.string.activation_device)
+                    else -> getString(R.string.activation_invalid)
+                }
+                Toast.makeText(this@HomeActivity, msg, Toast.LENGTH_LONG).show()
+                goActivation(force = true)
+                return@launch
+            }
+            FloatingBubbleService.start(this@HomeActivity)
+            Toast.makeText(this@HomeActivity, R.string.bubble_started, Toast.LENGTH_SHORT).show()
+            moveTaskToBack(true)
+        }
     }
 
     private fun requestOverlayPermission() {

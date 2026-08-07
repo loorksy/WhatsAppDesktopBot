@@ -469,11 +469,11 @@ app.post('/api/licenses', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/licenses/:id', requireAdmin, async (req, res) => {
-  const updated = await licenses.updateLicense(req.params.id, {
-    active: req.body?.active,
-    note: req.body?.note,
-    resetDevice: !!req.body?.resetDevice,
-  });
+  const patch = {};
+  if (typeof req.body?.active === 'boolean') patch.active = req.body.active;
+  if (req.body?.note !== undefined) patch.note = req.body.note;
+  if (req.body?.resetDevice) patch.resetDevice = true;
+  const updated = await licenses.updateLicense(req.params.id, patch);
   if (!updated) return res.status(404).json({ error: 'NOT_FOUND' });
   res.json({ success: true, license: updated });
 });

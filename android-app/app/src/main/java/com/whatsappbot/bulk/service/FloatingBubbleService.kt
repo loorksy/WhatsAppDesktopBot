@@ -85,8 +85,9 @@ class FloatingBubbleService : Service() {
             }
         }
         licenseJob = scope.launch {
+            verifyLicenseOrShutdown()
             while (isActive) {
-                delay(5 * 60_000L)
+                delay(30_000L)
                 verifyLicenseOrShutdown()
             }
         }
@@ -250,7 +251,8 @@ class FloatingBubbleService : Service() {
         stopSelf()
     }
 
-    private suspend fun verifyLicenseOrShutdown() {
+    /** @return true when license is valid and sending may continue */
+    private suspend fun verifyLicenseOrShutdown(): Boolean {
         val prefs = LicensePrefs(this)
         if (!prefs.isActivated()) {
             withContext(Dispatchers.Main) {
@@ -258,24 +260,31 @@ class FloatingBubbleService : Service() {
                 openActivation()
                 shutdownCompletely()
             }
-            return
+            return false
         }
         val result = withContext(Dispatchers.IO) {
             LicenseClient(prefs).checkStatus()
         }
-        if (!result.active) {
+        if (result.active) return true
+        // Network blips should not wipe activation, but revoked codes must stop the app.
+        if (result.error == "NETWORK" || result.error == "ERROR") {
             withContext(Dispatchers.Main) {
-                if (result.error == "DISABLED") {
-                    prefs.clearActivation()
-                    Toast.makeText(this@FloatingBubbleService, R.string.activation_disabled, Toast.LENGTH_LONG).show()
-                } else if (result.error == "INVALID_CODE" || result.error == "DEVICE_MISMATCH") {
-                    prefs.clearActivation()
-                    Toast.makeText(this@FloatingBubbleService, R.string.activation_invalid, Toast.LENGTH_LONG).show()
-                }
-                openActivation()
-                shutdownCompletely()
+                Toast.makeText(this@FloatingBubbleService, R.string.activation_network, Toast.LENGTH_LONG).show()
             }
+            return false
         }
+        withContext(Dispatchers.Main) {
+            prefs.clearActivation()
+            val msg = when (result.error) {
+                "DISABLED" -> getString(R.string.activation_disabled)
+                "DEVICE_MISMATCH" -> getString(R.string.activation_device)
+                else -> getString(R.string.activation_invalid)
+            }
+            Toast.makeText(this@FloatingBubbleService, msg, Toast.LENGTH_LONG).show()
+            openActivation()
+            shutdownCompletely()
+        }
+        return false
     }
 
     private fun openActivation() {
@@ -419,7 +428,14 @@ class FloatingBubbleService : Service() {
             Toast.makeText(this, R.string.must_paste, Toast.LENGTH_SHORT).show()
             return
         }
-        beginSend(messages)
+        panelSend?.isEnabled = false
+        scope.launch {
+            val allowed = runCatching { verifyLicenseOrShutdown() }.getOrDefault(false)
+            withContext(Dispatchers.Main) {
+                panelSend?.isEnabled = true
+                if (allowed) beginSend(messages)
+            }
+        }
     }
 
     private fun beginSend(messages: List<String>) {

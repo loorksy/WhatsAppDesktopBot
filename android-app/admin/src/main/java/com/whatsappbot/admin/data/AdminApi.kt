@@ -94,7 +94,7 @@ class AdminApi(private val prefs: AdminPrefs) {
             id = o.optString("id"),
             code = o.optString("code"),
             note = o.optString("note"),
-            active = o.optBoolean("active", true),
+            active = if (!o.has("active") || o.isNull("active")) false else o.optBoolean("active", false),
             deviceId = o.optString("deviceId").ifBlank { null },
             createdAt = o.optLong("createdAt"),
             activatedAt = o.optLong("activatedAt").takeIf { it > 0 },

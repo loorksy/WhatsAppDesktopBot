@@ -61,17 +61,25 @@ async function findByCode(code) {
   return licenses.find((l) => normalizeCode(l.code) === normalized) || null;
 }
 
+function isLicenseActive(license) {
+  return !!(license && license.active === true);
+}
+
 async function updateLicense(id, patch = {}) {
   const licenses = await listLicenses();
   const idx = licenses.findIndex((l) => l.id === id);
   if (idx === -1) return null;
   const current = licenses[idx];
   const updated = {
-    ...current,
-    ...patch,
     id: current.id,
     code: current.code,
+    note: current.note || '',
+    active: isLicenseActive(current),
     createdAt: current.createdAt,
+    createdBy: current.createdBy || '',
+    deviceId: current.deviceId || null,
+    activatedAt: current.activatedAt || null,
+    lastSeenAt: current.lastSeenAt || null,
   };
   if (typeof patch.active === 'boolean') updated.active = patch.active;
   if (patch.note !== undefined) updated.note = String(patch.note || '').trim();
@@ -107,7 +115,7 @@ async function activate({ code, deviceId }) {
     throw err;
   }
   const license = licenses[idx];
-  if (!license.active) {
+  if (!isLicenseActive(license)) {
     const err = new Error('DISABLED');
     err.code = 'DISABLED';
     throw err;
@@ -143,22 +151,23 @@ async function checkStatus({ code, deviceId }) {
   if (!license) {
     return { ok: false, active: false, error: 'INVALID_CODE' };
   }
-  if (!license.active) {
+  if (!isLicenseActive(license)) {
     return { ok: false, active: false, error: 'DISABLED' };
   }
   if (license.deviceId && license.deviceId !== deviceId) {
     return { ok: false, active: false, error: 'DEVICE_MISMATCH' };
   }
-  const licenses = await listLicenses();
-  const idx = licenses.findIndex((l) => l.id === license.id);
-  if (idx !== -1) {
-    licenses[idx] = {
-      ...licenses[idx],
-      deviceId: licenses[idx].deviceId || deviceId,
-      activatedAt: licenses[idx].activatedAt || Date.now(),
-      lastSeenAt: Date.now(),
-    };
-    await saveLicenses(licenses);
+  // Do not bind devices from status checks — only /activate binds a device.
+  if (license.deviceId) {
+    const licenses = await listLicenses();
+    const idx = licenses.findIndex((l) => l.id === license.id);
+    if (idx !== -1) {
+      licenses[idx] = {
+        ...licenses[idx],
+        lastSeenAt: Date.now(),
+      };
+      await saveLicenses(licenses);
+    }
   }
   return {
     ok: true,
@@ -177,4 +186,5 @@ module.exports = {
   checkStatus,
   formatCode,
   normalizeCode,
+  isLicenseActive,
 };
