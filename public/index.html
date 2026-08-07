@@ -2,264 +2,402 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <meta name="theme-color" content="#1a1a2e" />
-  <title>لوحة تحكم واتساب بوت</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="أداة الإرسال — حمّل تطبيق الإرسال الجماعي لواتساب" />
+  <title>أداة الإرسال</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #10231c;
+      --ink-soft: #2d4a3d;
+      --muted: #5f7468;
+      --cream: #eef6f1;
+      --leaf: #1f8a5b;
+      --leaf-deep: #0f5d3d;
+      --sun: #d8f3e4;
+      --panel: rgba(255, 255, 255, 0.72);
+      --line: rgba(16, 35, 28, 0.12);
+      --shadow: 0 24px 60px rgba(16, 35, 28, 0.16);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      font-family: "Cairo", "Manrope", sans-serif;
+      color: var(--ink);
+      background: #dceee4;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 2rem 1.25rem 3rem;
+      isolation: isolate;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background:
+        radial-gradient(ellipse 80% 60% at 80% 10%, rgba(216, 243, 228, 0.95), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 10% 90%, rgba(31, 138, 91, 0.22), transparent 50%),
+        linear-gradient(160deg, #f4fbf7 0%, #d7ebe1 42%, #b9dccb 100%);
+      overflow: hidden;
+    }
+
+    .hero-bg::before,
+    .hero-bg::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(2px);
+      animation: drift 14s ease-in-out infinite alternate;
+    }
+
+    .hero-bg::before {
+      width: 42vmax;
+      height: 42vmax;
+      top: -12vmax;
+      left: -8vmax;
+      background: radial-gradient(circle, rgba(31, 138, 91, 0.18), transparent 70%);
+    }
+
+    .hero-bg::after {
+      width: 36vmax;
+      height: 36vmax;
+      bottom: -10vmax;
+      right: -6vmax;
+      background: radial-gradient(circle, rgba(15, 93, 61, 0.16), transparent 70%);
+      animation-delay: -4s;
+    }
+
+    .pattern {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      opacity: 0.18;
+      background-image:
+        linear-gradient(rgba(16, 35, 28, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 35, 28, 0.08) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at center, black 20%, transparent 75%);
+    }
+
+    .stage {
+      width: min(720px, 100%);
+      text-align: center;
+      transform: translateY(18px);
+      opacity: 0;
+      animation: rise 900ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1.4rem;
+      color: var(--leaf-deep);
+    }
+
+    .brand-mark {
+      width: 2.6rem;
+      height: 2.6rem;
+      border-radius: 0.85rem;
+      background: linear-gradient(145deg, var(--leaf), var(--leaf-deep));
+      display: grid;
+      place-items: center;
+      color: white;
+      font-family: "Manrope", sans-serif;
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      box-shadow: 0 10px 24px rgba(15, 93, 61, 0.28);
+      animation: pulseSoft 3.2s ease-in-out infinite;
+    }
+
+    .brand-name {
+      font-size: clamp(1.8rem, 5vw, 2.55rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    h1 {
+      font-size: clamp(1.35rem, 3.8vw, 1.85rem);
+      font-weight: 700;
+      color: var(--ink-soft);
+      margin-bottom: 0.85rem;
+      line-height: 1.35;
+    }
+
+    .lead {
+      max-width: 34rem;
+      margin: 0 auto 1.8rem;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.75;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      min-width: min(100%, 280px);
+      padding: 1rem 1.5rem;
+      border: 0;
+      border-radius: 1rem;
+      background: linear-gradient(135deg, var(--leaf) 0%, var(--leaf-deep) 100%);
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      font-weight: 800;
+      box-shadow: 0 14px 30px rgba(15, 93, 61, 0.28);
+      transition: transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+    }
+
+    .cta:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 36px rgba(15, 93, 61, 0.34);
+      filter: brightness(1.03);
+    }
+
+    .cta:active { transform: translateY(0); }
+
+    .cta svg {
+      width: 1.2rem;
+      height: 1.2rem;
+      flex: 0 0 auto;
+    }
+
+    .meta {
+      margin-top: 0.9rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .visual {
+      width: min(420px, 92%);
+      margin: 2.4rem auto 0;
+      aspect-ratio: 1.15 / 1;
+      position: relative;
+      border-radius: 2rem;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.15)),
+        linear-gradient(145deg, #1f8a5b, #0f5d3d 55%, #16382b);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transform: translateY(24px);
+      opacity: 0;
+      animation: rise 1000ms cubic-bezier(0.22, 1, 0.36, 1) 280ms forwards;
+    }
+
+    .visual::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 70% 20%, rgba(255,255,255,0.25), transparent 35%),
+        radial-gradient(circle at 20% 80%, rgba(216,243,228,0.18), transparent 40%);
+    }
+
+    .phone {
+      position: absolute;
+      inset: 12% 22% 10%;
+      border-radius: 1.4rem;
+      background: rgba(244, 251, 247, 0.95);
+      border: 1px solid rgba(255,255,255,0.35);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+      overflow: hidden;
+    }
+
+    .phone-bar {
+      height: 18%;
+      background: linear-gradient(180deg, #e7f6ee, #d7ebe1);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--leaf-deep);
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .chat-line {
+      height: 10px;
+      margin: 1rem 1rem 0;
+      border-radius: 999px;
+      background: rgba(16, 35, 28, 0.08);
+    }
+
+    .chat-line.short { width: 55%; }
+    .chat-line.mid { width: 72%; }
+    .chat-line.long { width: 88%; }
+
+    .bubble {
+      position: absolute;
+      width: 3.4rem;
+      height: 3.4rem;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #2aa56f, #0f5d3d);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.25);
+      right: 8%;
+      bottom: 16%;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-family: "Manrope", sans-serif;
+      font-weight: 800;
+      animation: floaty 3.6s ease-in-out infinite;
+    }
+
+    .section {
+      padding: 3.5rem 1.25rem 4.5rem;
+      background: linear-gradient(180deg, #f7fcf9 0%, #eef6f1 100%);
+    }
+
+    .section-inner {
+      width: min(760px, 100%);
+      margin: 0 auto;
+    }
+
+    .section h2 {
+      font-size: 1.45rem;
+      margin-bottom: 0.75rem;
+      color: var(--ink);
+    }
+
+    .section p {
+      color: var(--muted);
+      line-height: 1.8;
+      margin-bottom: 1.25rem;
+    }
+
+    .steps {
+      display: grid;
+      gap: 0.85rem;
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .steps li {
+      counter-increment: step;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.85rem;
+      align-items: start;
+      padding: 1rem 0;
+      border-top: 1px solid var(--line);
+      color: var(--ink-soft);
+      line-height: 1.7;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: 0.55rem;
+      background: var(--sun);
+      color: var(--leaf-deep);
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      font-family: "Manrope", sans-serif;
+      margin-top: 0.15rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.25rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      background: #e8f3ec;
+    }
+
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(3%, -2%, 0) scale(1.06); }
+    }
+
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes pulseSoft {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+
+    @media (max-width: 640px) {
+      .hero { padding-top: 2.4rem; align-content: start; }
+      .visual { margin-top: 2rem; }
+      .lead { font-size: 1rem; }
+    }
+  </style>
 </head>
-<body data-page="dashboard">
-  <header class="mobile-header">
-    <button class="menu-toggle" id="menuToggle" aria-label="القائمة"><i class="fas fa-bars"></i></button>
-    <span class="mobile-header-title">واتساب بوت</span>
-    <div id="header-status-badge" class="header-badge bad">غير متصل</div>
-  </header>
+<body>
+  <main class="hero">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="pattern" aria-hidden="true"></div>
 
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <button class="sidebar-close" id="sidebarClose" aria-label="إغلاق"><i class="fas fa-times"></i></button>
-      <div class="sidebar-brand-icon"><i class="fab fa-whatsapp"></i></div>
-      <div>
-        <h2>واتساب بوت</h2>
-        <span>لوحة التحكم</span>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <a class="active" href="index.html"><i class="fas fa-sliders-h"></i> التحكم</a>
-      <a href="bulk.html"><i class="fas fa-paper-plane"></i> الإرسال الجماعي</a>
-      <a id="admin-link" href="admin.html"><i class="fas fa-users-cog"></i> الإدارة</a>
-    </nav>
-    <div class="sidebar-footer">WhatsApp Bot v1.0</div>
-  </aside>
-
-  <main class="main-content">
-    <div class="page-wrap">
-      <header class="page-header">
-        <div>
-          <h1 class="page-title">التحكم في البوت</h1>
-          <p class="page-sub">إدارة الربط والمجموعات والإعدادات</p>
-        </div>
-      </header>
-
-      <div class="panels panels-2">
-        <section class="panel" data-permission="can_control_bot">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-power-off"></i></span>
-            <h2>الحالة</h2>
-            <button id="link-btn" class="primary ghost">ربط واتساب</button>
-          </div>
-          <div class="panel-body">
-            <div class="status-row">
-              <span id="connected-pill" class="status-pill">غير متصل</span>
-              <span id="link-pill" class="status-pill">غير مرتبط</span>
-              <span id="running-pill" class="status-pill">متوقف</span>
-            </div>
-            <div class="btn-row stacked">
-              <button id="start-btn" class="primary">تشغيل البوت</button>
-              <button id="stop-btn" class="danger">إيقاف البوت</button>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" data-permission="can_manage_forwarding">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-share"></i></span>
-            <h2>إعادة التوجيه</h2>
-          </div>
-          <div class="panel-body">
-            <div class="field-row">
-              <div class="field toggle-field">
-                <label for="forward-enabled">تفعيل</label>
-                <label class="switch"><input type="checkbox" id="forward-enabled" /><span class="slider"></span></label>
-              </div>
-              <div class="field">
-                <label for="forward-target">المجموعة المستهدفة</label>
-                <select id="forward-target"></select>
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label for="forward-batch">دفعة واحدة</label>
-                <input class="num-en" type="number" id="forward-batch" min="1" value="10" lang="en" inputmode="numeric" />
-              </div>
-              <div class="field toggle-field">
-                <label for="forward-flush-idle">إرسال عند الخمول</label>
-                <label class="switch"><input type="checkbox" id="forward-flush-idle" /><span class="slider"></span></label>
-              </div>
-            </div>
-            <div class="forward-meta">
-              <div>الانتظار: <span id="forward-queue">0</span></div>
-              <div>آخر توجيه: <span id="forward-last">—</span></div>
-            </div>
-            <div class="btn-row">
-              <button id="forward-flush" class="primary">توجيه الآن</button>
-              <button id="forward-clear" class="ghost">تفريغ</button>
-            </div>
-          </div>
-        </section>
+    <div class="stage">
+      <div class="brand">
+        <span class="brand-mark">L</span>
+        <span class="brand-name">أداة الإرسال</span>
       </div>
 
-      <div class="panels panels-2" style="margin-top:16px">
-        <section class="panel" data-permission="can_manage_settings">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-users"></i></span>
-            <h2>المجموعات</h2>
-            <button id="fetch-groups" class="ghost">تحديث</button>
-            <button id="save-groups" class="primary">حفظ</button>
-          </div>
-          <div class="panel-body"><div id="groups-list" class="group-list"></div></div>
-        </section>
+      <h1>أرسل رسائل واتساب بسرعة عبر فقاعة عائمة</h1>
+      <p class="lead">حمّل التطبيق مباشرة إلى جهاز أندرويد، فعّل رمز الاشتراك، وابدأ الإرسال من داخل المحادثة بدون فتح الموقع.</p>
 
-        <section class="panel" data-permission="can_manage_lists">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-list"></i></span>
-            <h2>قائمة الأسماء</h2>
-            <button id="save-clients" class="primary">حفظ</button>
-            <button id="clear-clients" class="danger ghost">حذف</button>
-          </div>
-          <div class="panel-body">
-            <textarea id="clients-text" rows="6" placeholder="الاسم|الإيموجي في كل سطر"></textarea>
-          </div>
-        </section>
+      <a class="cta" href="/download/bulk-sender.apk" download="bulk-sender.apk">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        تنزيل التطبيق
+      </a>
+      <p class="meta">لأجهزة أندرويد · ملف APK جاهز للتثبيت</p>
+
+      <div class="visual" aria-hidden="true">
+        <div class="phone">
+          <div class="phone-bar">واتساب</div>
+          <div class="chat-line long"></div>
+          <div class="chat-line mid"></div>
+          <div class="chat-line short"></div>
+          <div class="chat-line mid"></div>
+        </div>
+        <div class="bubble">↑</div>
       </div>
-
-      <div class="panels panels-2" style="margin-top:16px">
-        <section class="panel" data-permission="can_manage_lists">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-cog"></i></span>
-            <h2>الإعدادات</h2>
-            <button id="save-settings" class="primary">حفظ</button>
-          </div>
-          <div class="panel-body">
-            <div class="field-grid">
-              <div class="field">
-                <label for="rpm">RPM</label>
-                <input class="num-en" type="number" id="rpm" min="1" value="20" lang="en" inputmode="numeric" />
-              </div>
-              <div class="field">
-                <label for="cooldown">الفاصل (ث)</label>
-                <input class="num-en" type="number" id="cooldown" min="0" value="3" lang="en" inputmode="decimal" />
-              </div>
-              <div class="field">
-                <label for="defaultEmoji">الإيموجي</label>
-                <input type="text" id="defaultEmoji" maxlength="4" />
-              </div>
-              <div class="field toggle-field">
-                <label>توحيد عربي</label>
-                <label class="switch"><input type="checkbox" id="normalize" checked /><span class="slider"></span></label>
-              </div>
-              <div class="field toggle-field">
-                <label>رد نصي</label>
-                <label class="switch"><input type="checkbox" id="replyMode" /><span class="slider"></span></label>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" data-permission="can_scan_backlog">
-          <div class="panel-head">
-            <span class="panel-icon"><i class="fas fa-archive"></i></span>
-            <h2>فحص الأرشيف</h2>
-            <button id="backlog-process" class="primary">تنفيذ</button>
-            <button id="backlog-check" class="ghost">فحص</button>
-          </div>
-          <div class="panel-body">
-            <div class="field-grid">
-              <div class="field">
-                <label for="backlog-hours">ساعات</label>
-                <input type="range" id="backlog-hours" min="0" max="72" step="1" value="0" />
-                <div class="range-value" id="backlog-hours-value">0</div>
-              </div>
-              <div class="field">
-                <label for="backlog-since">من تاريخ</label>
-                <input type="datetime-local" id="backlog-since" />
-              </div>
-              <div class="field">
-                <label for="backlog-limit">الحد</label>
-                <input class="num-en" type="number" id="backlog-limit" min="50" max="2000" value="500" lang="en" inputmode="numeric" />
-              </div>
-            </div>
-            <div id="backlog-checkpoints" class="muted small"></div>
-            <div id="backlog-output" class="backlog-output"></div>
-          </div>
-        </section>
-      </div>
-
-      <section class="panel" data-permission="can_view_logs" style="margin-top:16px">
-        <div class="panel-head">
-          <span class="panel-icon"><i class="fas fa-clipboard-list"></i></span>
-          <h2>تتبع الأسماء</h2>
-          <button id="copy-pending" class="ghost">نسخ الباقي</button>
-          <button id="copy-interacted" class="ghost">نسخ المتفاعل</button>
-        </div>
-        <div class="panel-body name-split">
-          <div>
-            <div class="name-col-title">قيد الانتظار <span id="pending-count" class="badge">0</span></div>
-            <div id="pending-log" class="pill-list"></div>
-          </div>
-          <div>
-            <div class="name-col-title">تم التفاعل <span id="interacted-count" class="badge">0</span></div>
-            <div id="interacted-log" class="pill-list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel" data-permission="can_view_logs" style="margin-top:16px">
-        <div class="panel-head">
-          <span class="panel-icon"><i class="fas fa-terminal"></i></span>
-          <h2>سجل النظام</h2>
-          <button id="copy-skipped" class="ghost">نسخ</button>
-          <button id="clear-skipped" class="danger ghost">مسح</button>
-        </div>
-        <div class="panel-body"><pre id="logs" class="terminal"></pre></div>
-      </section>
     </div>
   </main>
 
-  <nav class="mobile-bottom-nav">
-    <a class="active" href="index.html"><i class="fas fa-sliders-h"></i> التحكم</a>
-    <a href="bulk.html"><i class="fas fa-paper-plane"></i> الإرسال</a>
-    <a id="mobile-admin-link" href="admin.html"><i class="fas fa-users-cog"></i> الإدارة</a>
-  </nav>
-
-  <div id="link-modal" class="modal hidden">
-    <div class="modal-content">
-      <button id="link-close" class="ghost close">✕</button>
-      <h3 class="modal-title">ربط واتساب</h3>
-      <div id="link-step-choose" class="link-step">
-        <div class="link-tabs">
-          <button type="button" class="link-tab active" data-tab="qr">مسح QR</button>
-          <button type="button" class="link-tab" data-tab="phone">رقم الهاتف</button>
-        </div>
-        <div id="link-tab-qr" class="link-tab-panel">
-          <p class="muted small">امسح من واتساب → الأجهزة المرتبطة</p>
-          <button id="link-qr-start" class="primary full-width">توليد QR</button>
-        </div>
-        <div id="link-tab-phone" class="link-tab-panel hidden">
-          <div class="field">
-            <label for="link-phone-input">رقم الهاتف</label>
-            <input class="num-en" type="tel" id="link-phone-input" placeholder="966501234567" lang="en" inputmode="tel" autocomplete="tel" />
-          </div>
-          <button id="link-phone-submit" class="primary full-width">إرسال رمز الربط</button>
-        </div>
-      </div>
-      <div id="link-step-result" class="link-step hidden">
-        <div id="link-result-qr" class="link-result hidden">
-          <img id="link-qr-image" alt="QR" />
-        </div>
-        <div id="link-result-phone" class="link-result hidden">
-          <div class="link-instructions">الأجهزة المرتبطة → ربط جهاز → الربط برقم الهاتف</div>
-          <div id="pairing-code-display" class="pairing-code">--------</div>
-          <button id="copy-pairing-code" class="ghost full-width">نسخ الرمز</button>
-        </div>
-        <button id="link-back-btn" class="ghost full-width link-back-btn">← العودة</button>
-      </div>
+  <section class="section">
+    <div class="section-inner">
+      <h2>طريقة التثبيت</h2>
+      <p>بعد التحميل ثبّت التطبيق وفعّل الأذونات المطلوبة مرة واحدة، ثم استخدم رمز الاشتراك الذي يصلك من الأدمن.</p>
+      <ol class="steps">
+        <li>اضغط «تنزيل التطبيق» وافتح الملف من الإشعارات أو مجلد التنزيلات.</li>
+        <li>اسمح بتثبيت التطبيقات من المصدر إن طلب الجهاز ذلك.</li>
+        <li>افتح التطبيق، أدخل رمز الاشتراك فقط، ثم فعّل إمكانية الوصول والأيقونة العائمة.</li>
+      </ol>
     </div>
-  </div>
+  </section>
 
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <script src="client.js"></script>
+  <footer>bot.lork.cloud</footer>
 </body>
 </html>

@@ -140,33 +140,23 @@ const bot = new WhatsAppBot();
 bot.init();
 ensureMasterUser();
 
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+// Old web dashboard removed — site is now the Android app download page.
+app.get(['/login', '/admin.html', '/bulk.html', '/login.html'], (req, res) => {
+  res.redirect(301, '/');
 });
 
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.redirect('/login?error=missing_credentials');
-  }
-  const user = await findUserByEmail(email);
-  if (!user) {
-    return res.redirect('/login?error=invalid_credentials');
-  }
-  const hashed = hashPassword(password);
-  if (hashed !== user.password) {
-    return res.redirect('/login?error=invalid_credentials');
-  }
-  const token = signToken(user);
-  res.cookie(TOKEN_NAME, token, { httpOnly: true, sameSite: 'lax' });
-  const perms = mergePermissions(user.permissions || {}, user.email === MASTER_EMAIL);
-  const sendOnly =
-    !!perms.can_send_messages &&
-    !perms.is_admin &&
-    !perms.can_control_bot &&
-    !perms.can_manage_settings &&
-    !perms.can_scan_backlog;
-  return res.redirect(sendOnly ? '/bulk.html' : '/');
+app.post('/login', (req, res) => {
+  res.redirect(301, '/');
+});
+
+app.get('/download/bulk-sender.apk', (req, res) => {
+  const candidates = [
+    path.join(__dirname, 'releases', 'bulk-sender.apk'),
+    path.join(__dirname, 'public', 'downloads', 'bulk-sender.apk'),
+  ];
+  const filePath = candidates.find((p) => fs.existsSync(p));
+  if (!filePath) return res.status(404).send('APK not found');
+  return res.download(filePath, 'bulk-sender.apk');
 });
 
 function handleWaNotReady(res, err) {
