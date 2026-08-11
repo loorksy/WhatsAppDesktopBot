@@ -1,7 +1,19 @@
 # WhatsApp Desktop Bot
 
-Production-ready WhatsApp bot with a web dashboard, message queueing, backlog processing, and bulk sending.
+Production-ready WhatsApp bot with a web dashboard, message queueing, backlog processing, and a mobile bulk-send app.
 
+## Android APKs
+- Sender: `releases/bulk-sender.apk` (floating bubble + license key)
+- Admin: `releases/bulk-admin.apk` (create/disable subscription codes on your VPS)
+
+Build:
+```bash
+export ANDROID_HOME=$HOME/android-sdk
+cd android-app
+./gradlew :app:assembleDebug :admin:assembleDebug
+```
+
+Drag the sender bubble to the bottom of the screen to close it. Users must activate with a code from the admin app.
 ## Requirements
 - Node.js 18+
 - npm

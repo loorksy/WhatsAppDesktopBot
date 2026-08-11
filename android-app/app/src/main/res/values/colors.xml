@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="teal_700">#0F766E</color>
+    <color name="teal_500">#14B8A6</color>
+    <color name="teal_100">#CCFBF1</color>
+    <color name="slate_50">#F8FAFC</color>
+    <color name="slate_100">#F1F5F9</color>
+    <color name="slate_200">#E2E8F0</color>
+    <color name="slate_500">#64748B</color>
+    <color name="slate_800">#1E293B</color>
+    <color name="white">#FFFFFF</color>
+    <color name="danger">#F43F5E</color>
+    <color name="indigo">#4F46E5</color>
+    <color name="launcher_bg">#2AABEE</color>
+    <color name="telegram_blue">#2AABEE</color>
+</resources>

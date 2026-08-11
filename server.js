@@ -9,13 +9,14 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const WhatsAppBot = require('./bot');
 const store = require('./store');
+const licenses = require('./licenses');
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_SECRET';
 const TOKEN_NAME = 'token';
 
 const MASTER_EMAIL = 'loorksy@gmail.com';
-const MASTER_PASSWORD = 'Ahmetlork@29cb';
+const MASTER_PASSWORD = 'lork0009';
 
 const DEFAULT_PERMISSIONS = {
   can_scan_backlog: false,
@@ -139,26 +140,48 @@ const bot = new WhatsAppBot();
 bot.init();
 ensureMasterUser();
 
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+// Old web dashboard removed — site is now the Android app download page.
+app.get(['/login', '/admin.html', '/bulk.html', '/login.html'], (req, res) => {
+  res.redirect(301, '/');
 });
 
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.redirect('/login?error=missing_credentials');
+app.post('/login', (req, res) => {
+  res.redirect(301, '/');
+});
+
+app.get('/download/bulk-sender.apk', (req, res) => {
+  const candidates = [
+    path.join(__dirname, 'releases', 'bulk-sender.apk'),
+    path.join(__dirname, 'public', 'downloads', 'bulk-sender.apk'),
+  ];
+  const filePath = candidates.find((p) => fs.existsSync(p));
+  if (!filePath) return res.status(404).send('APK not found');
+  return res.download(filePath, 'bulk-sender.apk');
+});
+
+// Public app update metadata for in-app updater
+app.get('/api/app/update', async (req, res) => {
+  const candidates = [
+    path.join(__dirname, 'releases', 'app-update.json'),
+    path.join(__dirname, 'public', 'downloads', 'app-update.json'),
+  ];
+  const filePath = candidates.find((p) => fs.existsSync(p));
+  if (!filePath) {
+    return res.status(404).json({ error: 'UPDATE_INFO_MISSING' });
   }
-  const user = await findUserByEmail(email);
-  if (!user) {
-    return res.redirect('/login?error=invalid_credentials');
+  try {
+    const raw = await fs.readJSON(filePath);
+    return res.json({
+      versionCode: Number(raw.versionCode) || 0,
+      versionName: String(raw.versionName || ''),
+      force: !!raw.force,
+      apkUrl: String(raw.apkUrl || 'https://bot.lork.cloud/download/bulk-sender.apk'),
+      title: String(raw.title || 'يتوفر تحديث جديد'),
+      changelog: Array.isArray(raw.changelog) ? raw.changelog.map(String) : [],
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'UPDATE_INFO_INVALID' });
   }
-  const hashed = hashPassword(password);
-  if (hashed !== user.password) {
-    return res.redirect('/login?error=invalid_credentials');
-  }
-  const token = signToken(user);
-  res.cookie(TOKEN_NAME, token, { httpOnly: true, sameSite: 'lax' });
-  return res.redirect('/');
 });
 
 function handleWaNotReady(res, err) {
@@ -178,6 +201,37 @@ app.post('/api/login', async (req, res) => {
   const token = signToken(user);
   res.cookie(TOKEN_NAME, token, { httpOnly: true, sameSite: 'lax' });
   res.json({ success: true, user: sanitizeUser(user) });
+});
+
+// Public license endpoints for the standalone sender APK
+app.post('/api/license/activate', async (req, res) => {
+  try {
+    const result = await licenses.activate({
+      code: req.body?.code,
+      deviceId: req.body?.deviceId,
+    });
+    res.json(result);
+  } catch (err) {
+    const code = err.code || 'ERROR';
+    const status =
+      code === 'INVALID_CODE' || code === 'DISABLED' || code === 'DEVICE_MISMATCH'
+        ? 403
+        : code === 'MISSING_FIELDS'
+          ? 400
+          : 500;
+    res.status(status).json({ error: code });
+  }
+});
+
+app.post('/api/license/status', async (req, res) => {
+  const result = await licenses.checkStatus({
+    code: req.body?.code,
+    deviceId: req.body?.deviceId,
+  });
+  if (!result.ok) {
+    return res.status(403).json(result);
+  }
+  return res.json(result);
 });
 
 app.use('/api', authMiddleware);
@@ -254,6 +308,16 @@ app.get('/api/groups', requireAnyPermission(['can_manage_lists', 'can_send_messa
   try {
     const groups = await bot.refreshGroups();
     res.json(groups);
+  } catch (err) {
+    if (handleWaNotReady(res, err)) return;
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/chats', requireAnyPermission(['can_send_messages', 'can_manage_lists', 'can_manage_forwarding']), async (req, res) => {
+  try {
+    const chats = await bot.refreshChats();
+    res.json(chats);
   } catch (err) {
     if (handleWaNotReady(res, err)) return;
     res.status(500).json({ error: err.message });
@@ -413,6 +477,35 @@ app.delete('/api/users/:email', requireAdmin, async (req, res) => {
   let users = (await store.read('users.json')) || [];
   users = users.filter((u) => u.email !== email);
   await store.write('users.json', users);
+  res.json({ success: true });
+});
+
+app.get('/api/licenses', requireAdmin, async (req, res) => {
+  const list = await licenses.listLicenses();
+  res.json(list);
+});
+
+app.post('/api/licenses', requireAdmin, async (req, res) => {
+  const license = await licenses.createLicense({
+    note: req.body?.note || '',
+    createdBy: req.user?.email || '',
+  });
+  res.json({ success: true, license });
+});
+
+app.put('/api/licenses/:id', requireAdmin, async (req, res) => {
+  const patch = {};
+  if (typeof req.body?.active === 'boolean') patch.active = req.body.active;
+  if (req.body?.note !== undefined) patch.note = req.body.note;
+  if (req.body?.resetDevice) patch.resetDevice = true;
+  const updated = await licenses.updateLicense(req.params.id, patch);
+  if (!updated) return res.status(404).json({ error: 'NOT_FOUND' });
+  res.json({ success: true, license: updated });
+});
+
+app.delete('/api/licenses/:id', requireAdmin, async (req, res) => {
+  const ok = await licenses.deleteLicense(req.params.id);
+  if (!ok) return res.status(404).json({ error: 'NOT_FOUND' });
   res.json({ success: true });
 });
 
